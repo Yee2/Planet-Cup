@@ -26,23 +26,27 @@ type Table struct {
 
 func (self *Table)start(id int)error {
 	if ss,ok := self.rows[id];ok{
+		if _,ok := self.chans[id]; ok{
+			return nil
+		}
 		ciph, err := core.PickCipher(ss.Cipher, self.key, ss.Password)
 		if err != nil {
 			return err
 		}
-		self.chans[id] = make(chan int,1)
-		go func(){
-			go udpRemote(ss.Addr, ss.ReplacePacketConn(ciph.PacketConn))
-			go tcpRemote(ss.Addr, ss.ReplaceConn(ciph.StreamConn))
-			<-self.chans[id]
-		}()
+		self.chans[id] = make(chan int)
+		go udpRemote(self.chans[id],ss.Addr, ss.ReplacePacketConn(ciph.PacketConn))
+		go tcpRemote(self.chans[id],ss.Addr, ss.ReplaceConn(ciph.StreamConn))
 		return nil
 	}
-	return errors.New("Not Exist!")
+	return errors.New(fmt.Sprintf("%d Not Exist!",id))
 }
 func (self *Table)stop(id int){
+	fmt.Printf("stop:%d",id)
 	if c,ok := self.chans[id];ok{
-		c <- 1
+		go func() {
+			c <- 1
+			c <- 1
+		}()
 	}
 	delete(self.chans,id)
 }

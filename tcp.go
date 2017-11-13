@@ -77,7 +77,7 @@ func tcpLocal(addr, server string, shadow func(net.Conn) net.Conn, getAddr func(
 }
 
 // Listen on addr for incoming connections.
-func tcpRemote(addr string, shadow func(net.Conn) net.Conn) {
+func tcpRemote(stop chan int,addr string, shadow func(net.Conn) net.Conn) {
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		logf("failed to listen on %s: %v", addr, err)
@@ -86,40 +86,45 @@ func tcpRemote(addr string, shadow func(net.Conn) net.Conn) {
 
 	logf("listening TCP on %s", addr)
 	for {
-		c, err := l.Accept()
-		if err != nil {
-			logf("failed to accept: %v", err)
-			continue
-		}
-
-		go func() {
-			defer c.Close()
-			c.(*net.TCPConn).SetKeepAlive(true)
-			c = shadow(c)
-
-			tgt, err := socks.ReadAddr(c)
+		select {
+		case <-stop:
+			return
+		default:
+			c, err := l.Accept()
 			if err != nil {
-				logf("failed to get target address: %v", err)
-				return
+				logf("failed to accept: %v", err)
+				continue
 			}
 
-			rc, err := net.Dial("tcp", tgt.String())
-			if err != nil {
-				logf("failed to connect to target: %v", err)
-				return
-			}
-			defer rc.Close()
-			rc.(*net.TCPConn).SetKeepAlive(true)
+			go func() {
+				defer c.Close()
+				c.(*net.TCPConn).SetKeepAlive(true)
+				c = shadow(c)
 
-			logf("proxy %s <-> %s", c.RemoteAddr(), tgt)
-			_, _, err = relay(c, rc)
-			if err != nil {
-				if err, ok := err.(net.Error); ok && err.Timeout() {
-					return // ignore i/o timeout
+				tgt, err := socks.ReadAddr(c)
+				if err != nil {
+					logf("failed to get target address: %v", err)
+					return
 				}
-				logf("relay error: %v", err)
-			}
-		}()
+
+				rc, err := net.Dial("tcp", tgt.String())
+				if err != nil {
+					logf("failed to connect to target: %v", err)
+					return
+				}
+				defer rc.Close()
+				rc.(*net.TCPConn).SetKeepAlive(true)
+
+				logf("proxy %s <-> %s", c.RemoteAddr(), tgt)
+				_, _, err = relay(c, rc)
+				if err != nil {
+					if err, ok := err.(net.Error); ok && err.Timeout() {
+						return // ignore i/o timeout
+					}
+					logf("relay error: %v", err)
+				}
+			}()
+		}
 	}
 }
 

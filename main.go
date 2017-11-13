@@ -26,9 +26,15 @@ func logf(f string, v ...interface{}) {
 }
 
 func main() {
-
+	config.Verbose = true
 	log.SetFlags( log.Ldate | log.Ltime | log.Llongfile )
 	args := os.Args[1:]
+	file,err := os.OpenFile("log.txt",os.O_RDONLY | os.O_CREATE,0755)
+	if err != nil{
+		log.Fatal("打开日志文件出错!")
+	}
+	defer file.Close()
+	log.SetOutput(file)
 	for _,u := range args{
 
 		addr, cipher, password , err := parseURL(u)

@@ -27,6 +27,16 @@ type Command struct {
 
 Command 实现的接口:`add` `del` `flow` `version` `pwd` `list`
 
+## Bug
+
+已知删除操作,需要客户端断开链接才能生效,UDP通道可能无法正常关闭.
+
+## 返回错误
+
+当发生错误时候,`error`可以查看错误信息.
+````
+{"error":"Port Existed!"}
+````
 ## add 指令
 ````
 {
@@ -35,21 +45,52 @@ Command 实现的接口:`add` `del` `flow` `version` `pwd` `list`
   "cipher": "AES-256-CFB"
   "password": "123456"
 }
+````
 返回
+````
 {
   "port": 8388,
   "cipher": "AES-256-CFB",
   "password": "123456"
 }
 ````
+
+## del 指令
+````
+{
+  "command": "del",
+  "port": 8388
+}
+````
+返回
+````
+{
+  "port": 8388
+}
+````
+
 ## flow 指令
 ````
 {
   "command: "flow"
 }
+````
 返回：
+````
 [
-  { port: 1234, up:1024,down: 2048 },
-  { port: 1235, up:1024,down: 2048 }
+  { "port": 1234, "up":1024,"down": 2048 },
+  { "port": 1235, "up":1024,"down": 2048 }
+]
+````
+
+## list 指令
+````
+{"command":"list"}
+````
+返回
+````
+[
+{"port":6666,"password":"12345678","cipher":"AES-256-CFB"},
+{"port":6667,"password":"12345678","cipher":"AES-256-CFB"}
 ]
 ````
