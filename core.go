@@ -5,6 +5,7 @@ import (
 	"log"
 	"errors"
 	"github.com/riobard/go-shadowsocks2/core"
+	"fmt"
 )
 
 type Shadowsocks struct {
@@ -74,3 +75,22 @@ func (self *Table)add(ss *Shadowsocks) error {
 	}
 	return nil
 }
+func (self *Table)pwd(id int,password string) error {
+	ss,ok := self.rows[id]
+	if ok{
+		return errors.New("Port Existed!")
+	}
+	self.stop(id)
+	ss.Password = password
+	return self.start(id)
+}
+func (self *Table)del(id int) error {
+	self.stop(id)
+	if _,ok := self.rows[id]; ok{
+		delete(self.rows,id)
+		return nil
+	}
+	return errors.New(fmt.Sprintf("Port %d No Found!",id))
+}
+
+

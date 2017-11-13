@@ -18,7 +18,7 @@ var config struct {
 	Verbose    bool
 	UDPTimeout time.Duration
 }
-
+var shadowsTable = NewTable()
 func logf(f string, v ...interface{}) {
 	if config.Verbose {
 		log.Printf(f, v...)
@@ -26,8 +26,7 @@ func logf(f string, v ...interface{}) {
 }
 
 func main() {
-	list := NewTable()
-	//config.Verbose = true
+
 	log.SetFlags( log.Ldate | log.Ltime | log.Llongfile )
 	args := os.Args[1:]
 	for _,u := range args{
@@ -41,15 +40,16 @@ func main() {
 			log.Fatal(err)
 		}
 		ss := &Shadowsocks{Addr:addr,Port:p,Password:password,Cipher:cipher,Flow:shadowsflows.Flow{0,0}}
-		list.push(ss)
+		shadowsTable.push(ss)
 	}
-	list.boot()
+	shadowsTable.boot()
+	go shadowsTable.Listen()
 	go func() {
 		for  {
 			// TODO: 好好学习终端控制符
-			n := len(list.rows)
+			n := len(shadowsTable.rows)
 			fmt.Print("\x1b[2J\x1b[1;1H===================\n")
-			for id,ss := range list.rows{
+			for id,ss := range shadowsTable.rows{
 				fmt.Printf("\x1b[K[%d]%s",id,ss.Flow)
 			}
 			fmt.Print("\x1b[K===================\n")
