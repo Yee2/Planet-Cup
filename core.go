@@ -41,18 +41,16 @@ func (self *Table)start(id int)error {
 	return errors.New(fmt.Sprintf("%d Not Exist!",id))
 }
 func (self *Table)stop(id int){
-	fmt.Printf("stop:%d",id)
+	logf("Stop:%d",id)
 	if c,ok := self.chans[id];ok{
-		go func() {
-			c <- 1
-			c <- 1
-		}()
+		c <- 1
+		c <- 1
 	}
 	delete(self.chans,id)
 }
 func (self *Table)boot(){
 	for id,_ := range self.rows{
-		logf("监听端口:%d\n",id)
+		logf("Listen on %d\n",id)
 		err := self.start(id)
 		if err != nil{
 			log.Fatal(err)

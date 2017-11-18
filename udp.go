@@ -73,54 +73,58 @@ func udpRemote(stop chan int,addr string, shadow func(net.PacketConn) net.Packet
 		logf("UDP remote listen error: %v", err)
 		return
 	}
-	defer c.Close()
+	//defer c.Close()
 	c = shadow(c)
 
 	nm := newNATmap(config.UDPTimeout)
 	buf := make([]byte, udpBufSize)
+	closeFlag := false
 
 	logf("listening UDP on %s", addr)
+	go func() {
+		<-stop
+		closeFlag = true
+		c.Close()
+	}()
 	for {
-		select {
-		case <-stop:
-			return
-		default:
-			n, raddr, err := c.ReadFrom(buf)
+		n, raddr, err := c.ReadFrom(buf)
+		if err != nil {
+			logf("UDP remote read error: %v", err)
+			if closeFlag {
+				break
+			}
+			continue
+		}
+
+		tgtAddr := socks.SplitAddr(buf[:n])
+		if tgtAddr == nil {
+			logf("failed to split target address from packet: %q", buf[:n])
+			continue
+		}
+
+		tgtUDPAddr, err := net.ResolveUDPAddr("udp", tgtAddr.String())
+		if err != nil {
+			logf("failed to resolve target UDP address: %v", err)
+			continue
+		}
+
+		payload := buf[len(tgtAddr):n]
+
+		pc := nm.Get(raddr.String())
+		if pc == nil {
+			pc, err = net.ListenPacket("udp", "")
 			if err != nil {
-				logf("UDP remote read error: %v", err)
+				logf("UDP remote listen error: %v", err)
 				continue
 			}
 
-			tgtAddr := socks.SplitAddr(buf[:n])
-			if tgtAddr == nil {
-				logf("failed to split target address from packet: %q", buf[:n])
-				continue
-			}
+			nm.Add(raddr, c, pc, true)
+		}
 
-			tgtUDPAddr, err := net.ResolveUDPAddr("udp", tgtAddr.String())
-			if err != nil {
-				logf("failed to resolve target UDP address: %v", err)
-				continue
-			}
-
-			payload := buf[len(tgtAddr):n]
-
-			pc := nm.Get(raddr.String())
-			if pc == nil {
-				pc, err = net.ListenPacket("udp", "")
-				if err != nil {
-					logf("UDP remote listen error: %v", err)
-					continue
-				}
-
-				nm.Add(raddr, c, pc, true)
-			}
-
-			_, err = pc.WriteTo(payload, tgtUDPAddr) // accept only UDPAddr despite the signature
-			if err != nil {
-				logf("UDP remote write error: %v", err)
-				continue
-			}
+		_, err = pc.WriteTo(payload, tgtUDPAddr) // accept only UDPAddr despite the signature
+		if err != nil {
+			logf("UDP remote write error: %v", err)
+			continue
 		}
 	}
 }

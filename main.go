@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Yee2/ssMulti-user/shadowsflows"
 	"strings"
 	"strconv"
 	"fmt"
@@ -27,28 +26,15 @@ func logf(f string, v ...interface{}) {
 
 func main() {
 	config.Verbose = true
-	log.SetFlags( log.Ldate | log.Ltime | log.Llongfile )
-	args := os.Args[1:]
-	file,err := os.OpenFile("log.txt",os.O_RDONLY | os.O_CREATE,0755)
+	log.SetFlags( log.Ldate | log.Ltime | log.Lshortfile )
+
+	file,err := os.OpenFile("log.txt",os.O_WRONLY | os.O_CREATE,0755)
 	if err != nil{
-		log.Fatal("打开日志文件出错!")
+		log.Fatal("Failed to open log file!")
 	}
 	defer file.Close()
 	log.SetOutput(file)
-	for _,u := range args{
 
-		addr, cipher, password , err := parseURL(u)
-		if err!=nil{
-			log.Fatal(err)
-		}
-		p,err := GetPort(addr)
-		if err!=nil{
-			log.Fatal(err)
-		}
-		ss := &Shadowsocks{Addr:addr,Port:p,Password:password,Cipher:cipher,Flow:shadowsflows.Flow{0,0}}
-		shadowsTable.push(ss)
-	}
-	shadowsTable.boot()
 	go shadowsTable.Listen()
 	go func() {
 		for  {

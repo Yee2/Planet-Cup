@@ -10,15 +10,18 @@ import (
 
 func (self *Table)Listen(){
 	ln, err := net.Listen("tcp", ":8088")
+	logf("Start listening on port 8088")
 	if err != nil {
 		// handle error
 		//logf(err.Error())
-		log.Fatalf("监听端口失败,请确定8088端口没有被占用:%s",err.Error())
+		log.Fatalf("failed to listen on %s: %v",":8088",err.Error())
 	}
+	defer ln.Close()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			// handle error
+			logf("%s",err)
 			continue
 		}
 		go self.HandleConnection(conn)

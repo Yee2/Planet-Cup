@@ -42,7 +42,7 @@ Command 实现的接口:`add` `del` `flow` `version` `pwd` `list`
 {
   "command": "add",
   "port": 8388,
-  "cipher": "AES-256-CFB"
+  "cipher": "AES-256-CFB",
   "password": "123456"
 }
 ````
