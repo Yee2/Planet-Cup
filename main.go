@@ -25,9 +25,9 @@ func logf(f string, v ...interface{}) {
 }
 
 func main() {
+
 	config.Verbose = true
 	log.SetFlags( log.Ldate | log.Ltime | log.Lshortfile )
-
 	file,err := os.OpenFile("log.txt",os.O_WRONLY | os.O_CREATE,0755)
 	if err != nil{
 		log.Fatal("Failed to open log file!")

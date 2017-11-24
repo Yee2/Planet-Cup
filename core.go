@@ -16,12 +16,13 @@ type Shadowsocks struct {
 	shadowsflows.Flow
 }
 func NewTable() *Table{
-	return &Table{make(map[int]chan int),make(map[int]*Shadowsocks),make([]byte,0,32)}
+	return &Table{make(map[int]chan int),make(map[int]*Shadowsocks),make([]byte,0,32),""}
 }
 type Table struct {
 	chans map[int]chan int
 	rows map[int]*Shadowsocks
 	key []byte
+	remote string
 }
 
 func (self *Table)start(id int)error {

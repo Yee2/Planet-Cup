@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"code.cloudfoundry.org/bytefmt"
 	"net"
+	"sync"
 )
 
 
 type Flow struct {
 	Up int
 	Down int
+	Mu sync.Mutex
 }
 
 func (self Flow)String() string {
@@ -35,4 +37,20 @@ func (self *Flow)ReplacePacketConn(shadow func(net.PacketConn) net.PacketConn)(f
 	return func(C net.PacketConn) net.PacketConn{
 		return shadow(self.PipePacket(C))
 	}
+}
+
+// 清空流量,并返回
+func (self *Flow)Get()(Up int,Down int){
+	self.Mu.Lock()
+	Up,Down,self.Up,self.Down = self.Up,self.Down,0,0
+	self.Mu.Unlock()
+	return
+}
+
+// 原先流量加上新设置流量
+func (self *Flow)Set(Up int,Down int){
+	self.Mu.Lock()
+	self.Up += Up
+	self.Down += Down
+	self.Mu.Unlock()
 }
