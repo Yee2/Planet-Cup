@@ -95,6 +95,7 @@ func tcpRemote(stop chan int,addr string, shadow func(net.Conn) net.Conn) {
 		if err != nil {
 			logf("failed to accept: %v", err)
 			if closeFlag{
+				stop <- 1
 				break
 			}
 			continue

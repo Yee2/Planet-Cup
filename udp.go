@@ -91,6 +91,7 @@ func udpRemote(stop chan int,addr string, shadow func(net.PacketConn) net.Packet
 		if err != nil {
 			logf("UDP remote read error: %v", err)
 			if closeFlag {
+				stop <- 1
 				break
 			}
 			continue

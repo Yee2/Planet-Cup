@@ -12,17 +12,27 @@ import (
 	"log"
 )
 
-var Duration = time.Minute * 30
+var Duration = time.Second * 30
+var n = 0
 type Client struct {
 	url string
+	key string
 	ss *Table
 	time time.Time /*最后更新时间时间*/
 }
 
-func New(u string) (*Client,error) {
-	resp,err := http.Get(u + "/index.php/RESTful/test")
+func NewClient(u ,key string) (*Client,error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", u + "/index.php/RESTful/test/" + key, nil)
+	req.Header.Add("X-API-KEY", key)
+	resp, err := client.Do(req)
+
+	//resp,err := http.Get(u + "/index.php/RESTful/test/" + key)
 	if err != nil{
 		return nil,err
+	}
+	if resp.StatusCode == 403 {
+		return nil,errors.New("Authentication failed")
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
@@ -42,18 +52,24 @@ func New(u string) (*Client,error) {
 	}
 
 	if res.Result == "done"{
-		return &Client{u,NewTable(),time.Now()},nil
+		return &Client{u,key,NewTable(),time.Now()},nil
 	}
 	return nil,errors.New("未知错误!")
 }
 
 func (self *Client)q(p string,v interface{})error{
-	resp,err := http.Get(self.url +p)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", self.url + p, nil)
+	req.Header.Add("X-API-KEY", self.key)
+	resp, err := client.Do(req)
+
+	//resp,err := http.Get(self.url + p)
 	if err != nil{
 		return err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	n++
 	if err != nil{
 		return err
 	}
@@ -66,6 +82,7 @@ func (self *Client)q(p string,v interface{})error{
 
 
 func (self *Client)init()error{
+	logf("initialization ...")
 	result := struct {
 		Error string `json:"error"`
 		List []struct{
@@ -90,11 +107,13 @@ func (self *Client)init()error{
 		}
 	}
 	self.ss.boot()
+	logf("initialization ...done")
 	return nil
 }
 
 // 从服务器获取更新
 func (self *Client)pull()error{
+	logf("Pull data ...")
 	result := struct {
 		Error string `json:"error"`
 		List []struct{
@@ -106,7 +125,7 @@ func (self *Client)pull()error{
 			} `json:"data"`
 		}
 	}{}
-	err := self.q("/index.php/RESTful/action/"+ fmt.Sprintf("%d",self.time.UnixNano()),&result)
+	err := self.q("/index.php/RESTful/action/"+ fmt.Sprintf("%d",self.time.Unix()),&result)
 	if err != nil{
 		return err
 	}
@@ -117,11 +136,19 @@ func (self *Client)pull()error{
 	for _,item := range result.List{
 		switch item.Key {
 		case "delete":
+			logf("Delete %d ...",item.Shadowsock.Port)
 			self.ss.del(item.Shadowsock.Port)
 		case "put":
-			//self.ss.
+			logf("set %d ...",item.Shadowsock.Port)
+			ss := &Shadowsocks{fmt.Sprintf(":%d",item.Shadowsock.Port),item.Shadowsock.Port,
+				item.Shadowsock.Password,item.Shadowsock.Method,shadowsflows.Flow{}}
+			err := self.ss.set(ss)
+			if err!= nil{
+				logf("%s",err)
+			}
 
 		case "post":
+			logf("add %d ...",item.Shadowsock.Port)
 			ss := &Shadowsocks{fmt.Sprintf(":%d",item.Shadowsock.Port),item.Shadowsock.Port,
 			item.Shadowsock.Password,item.Shadowsock.Method,shadowsflows.Flow{}}
 			err := self.ss.add(ss)
@@ -129,7 +156,7 @@ func (self *Client)pull()error{
 				logf("%s",err)
 			}
 		default:
-			logf("未知命令:%s",item.Key)
+			logf("Unknown command:%s",item.Key)
 		}
 	}
 	self.time = time.Now()
@@ -139,11 +166,12 @@ func (self *Client)pull()error{
 // 将本地流量推送到服务器上
 
 func (self *Client)push()(err error){
+	logf("Push data ...")
 	data := make([]struct{
 		Port int `json:"port"`
 		Up int `json:"up"`
 		Down int `json:"down"`
-	},len(self.ss.rows))
+	},0,len(self.ss.rows))
 	for _,item := range self.ss.rows{
 		up,down := item.Get()
 		data = append(data,struct{
@@ -168,8 +196,15 @@ func (self *Client)push()(err error){
 		panic(err)
 	}
 	postValues.Add("data",string(str))
-	postValues.Add("time",fmt.Sprintf("%d",self.time.UnixNano()))
-	resp,err := http.PostForm(self.url + "/index.php/RESTful/push",postValues)
+	postValues.Add("time",fmt.Sprintf("%d",self.time.Unix()))
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", self.url + "/index.php/RESTful/push", nil)
+	req.Header.Add("X-API-KEY", self.key)
+	req.PostForm = postValues
+
+	resp, err := client.Do(req)
+
+	//resp,err := http.PostForm(self.url + "/index.php/RESTful/push",)
 	if err!= nil{
 		panic(err)
 	}
@@ -197,8 +232,21 @@ func (self *Client)run(){
 		log.Fatal(err)
 	}
 	for {
+		logf("Sleep %s...",Duration.String())
 		time.Sleep(Duration)
-		self.push()
-		self.pull()
+		if err := self.push();err != nil{
+			logf("%v",err)
+		}
+
+		if err := self.pull();err != nil{
+			logf("%v",err)
+		}
 	}
+}
+
+func (self *Client)shutdown(){
+	logf("Shutdown ... push")
+	self.push()
+	logf("Shutdown ... ")
+	self.ss.shutdown()
 }
