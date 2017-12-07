@@ -9,6 +9,9 @@ import (
 	"runtime"
 	"fmt"
 	"path/filepath"
+	"flag"
+	"io/ioutil"
+	"encoding/json"
 )
 
 var config struct {
@@ -38,9 +41,41 @@ func main() {
 	//}
 	//defer file.Close()
 	//log.SetOutput(file)
+	var configFile string
+	flag.StringVar(&configFile,"c","config.json","Set the config file")
+
+	f,err := os.Open(configFile)
+
+	if err != nil{
+		log.Fatalln("Failed to read configuration file")
+	}
+
+	str,err := ioutil.ReadAll(f)
+
+	if err != nil{
+		log.Fatalln(err)
+	}
+	configuration := struct {
+		Verbose bool `json:"verbose"`
+		Server string `json:"server"`
+		Key string `json:"key"`
+		Duration int64 `json:"duration"`
+	}{}
+	err = json.Unmarshal(str,&configuration)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if configuration.Server == ""{
+		log.Fatalln("Server address can not be empty")
+	}
 
 	//开始运行
-	c,err := NewClient("http://m2.local","b3tlqTsCs0Ipc0gW")
+	if configuration.Duration > 0 {
+		Duration = time.Second * time.Duration(configuration.Duration)
+	}
+
+	c,err := NewClient(configuration.Server ,configuration.Key )
 	if err!=nil{
 		log.Fatalln(err)
 	}

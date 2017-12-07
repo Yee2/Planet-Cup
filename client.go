@@ -12,7 +12,7 @@ import (
 	"log"
 )
 
-var Duration = time.Second * 30
+var Duration = time.Minute * 30
 var n = 0
 type Client struct {
 	url string
