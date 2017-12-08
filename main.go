@@ -34,22 +34,30 @@ func main() {
 	// 开启日志输出到文件
 
 	config.Verbose = true
-	//log.SetFlags( log.Ldate | log.Ltime | log.Lshortfile )
-	//file,err := os.OpenFile("s.log",os.O_WRONLY | os.O_CREATE,0755)
-	//if err != nil{
-	//	log.Fatal("Failed to open log file!")
-	//}
-	//defer file.Close()
-	//log.SetOutput(file)
-	var configFile string
+
+	var (
+		configFile string
+		out string
+	)
 	flag.StringVar(&configFile,"c","config.json","Set the config file")
+	flag.StringVar(&out,"o","","out file")
+	flag.Parse()
 
 	f,err := os.Open(configFile)
 
 	if err != nil{
-		log.Fatalln("Failed to read configuration file")
+		log.Fatalf("Failed to read configuration file:%s",configFile)
 	}
-
+	defer f.Close()
+	
+	if out != ""{
+		f_out,err := os.OpenFile(out,os.O_WRONLY | os.O_CREATE,0755)
+		if err != nil{
+			log.Fatalf("Failed to open file:%s",out)
+		}
+		defer f_out.Close()
+		log.SetOutput(f_out)
+	}
 	str,err := ioutil.ReadAll(f)
 
 	if err != nil{
@@ -66,6 +74,9 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	config.Verbose = configuration.Verbose
+
 	if configuration.Server == ""{
 		log.Fatalln("Server address can not be empty")
 	}

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"log"
+	"strings"
 )
 
 var Duration = time.Minute * 30
@@ -79,7 +80,6 @@ func (self *Client)q(p string,v interface{})error{
 	}
 	return nil
 }
-
 
 func (self *Client)init()error{
 	logf("initialization ...")
@@ -197,20 +197,24 @@ func (self *Client)push()(err error){
 	}
 	postValues.Add("data",string(str))
 	postValues.Add("time",fmt.Sprintf("%d",self.time.Unix()))
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", self.url + "/index.php/RESTful/push", nil)
+	req, err := http.NewRequest("POST", self.url + "/index.php/RESTful/push", strings.NewReader(postValues.Encode()))
 	req.Header.Add("X-API-KEY", self.key)
-	req.PostForm = postValues
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	client := &http.Client{}
 	resp, err := client.Do(req)
 
-	//resp,err := http.PostForm(self.url + "/index.php/RESTful/push",)
 	if err!= nil{
 		panic(err)
+	}
+
+	if resp.StatusCode == 403 {
+		panic(errors.New("Authentication failed!"))
 	}
 	defer resp.Body.Close()
 	result := struct {
 		Error string `json:"error"`
+		Result string `json:"result"`
 		Message string `json:"message"`
 	}{}
 	body, err := ioutil.ReadAll(resp.Body)
@@ -224,6 +228,11 @@ func (self *Client)push()(err error){
 	if result.Error != ""{
 		panic(errors.New(result.Error))
 	}
+
+	if result.Result != "done"{
+		panic(errors.New(result.Message))
+	}
+
 	return nil
 }
 
@@ -245,8 +254,7 @@ func (self *Client)run(){
 }
 
 func (self *Client)shutdown(){
-	logf("Shutdown ... push")
-	self.push()
 	logf("Shutdown ... ")
+	self.push()
 	self.ss.shutdown()
 }
