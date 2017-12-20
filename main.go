@@ -35,6 +35,7 @@ func main() {
 	// 开启日志输出到文件
 
 	config.Verbose = true
+	config.UDPTimeout = 5*time.Minute
 
 	var (
 		configFile string
@@ -50,7 +51,7 @@ func main() {
 		log.Fatalf("Failed to read configuration file:%s",configFile)
 	}
 	defer f.Close()
-	
+
 	if out != ""{
 		f_out,err := os.OpenFile(out,os.O_WRONLY | os.O_CREATE,0755)
 		if err != nil{
