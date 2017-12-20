@@ -7,7 +7,15 @@ import (
 
 	"sync"
 
-	"github.com/riobard/go-shadowsocks2/socks"
+	"github.com/shadowsocks/go-shadowsocks2/socks"
+)
+
+type mode int
+
+const (
+	remoteServer mode = iota
+	relayClient
+	socksClient
 )
 
 const udpBufSize = 64 * 1024
@@ -55,10 +63,55 @@ func udpLocal(laddr, server, target string, shadow func(net.PacketConn) net.Pack
 			}
 
 			pc = shadow(pc)
-			nm.Add(raddr, c, pc, false)
+			nm.Add(raddr, c, pc, relayClient)
 		}
 
 		_, err = pc.WriteTo(buf[:len(tgt)+n], srvAddr)
+		if err != nil {
+			logf("UDP local write error: %v", err)
+			continue
+		}
+	}
+}
+
+// Listen on laddr for Socks5 UDP packets, encrypt and send to server to reach target.
+func udpSocksLocal(laddr, server string, shadow func(net.PacketConn) net.PacketConn) {
+	srvAddr, err := net.ResolveUDPAddr("udp", server)
+	if err != nil {
+		logf("UDP server address error: %v", err)
+		return
+	}
+
+	c, err := net.ListenPacket("udp", laddr)
+	if err != nil {
+		logf("UDP local listen error: %v", err)
+		return
+	}
+	defer c.Close()
+
+	nm := newNATmap(config.UDPTimeout)
+	buf := make([]byte, udpBufSize)
+
+	for {
+		n, raddr, err := c.ReadFrom(buf)
+		if err != nil {
+			logf("UDP local read error: %v", err)
+			continue
+		}
+
+		pc := nm.Get(raddr.String())
+		if pc == nil {
+			pc, err = net.ListenPacket("udp", "")
+			if err != nil {
+				logf("UDP local listen error: %v", err)
+				continue
+			}
+			logf("UDP socks tunnel %s <-> %s <-> %s", laddr, server, socks.Addr(buf[3:]))
+			pc = shadow(pc)
+			nm.Add(raddr, c, pc, socksClient)
+		}
+
+		_, err = pc.WriteTo(buf[3:n], srvAddr)
 		if err != nil {
 			logf("UDP local write error: %v", err)
 			continue
@@ -73,27 +126,28 @@ func udpRemote(stop chan int,addr string, shadow func(net.PacketConn) net.Packet
 		logf("UDP remote listen error: %v", err)
 		return
 	}
-	//defer c.Close()
+	defer c.Close()
 	c = shadow(c)
 
 	nm := newNATmap(config.UDPTimeout)
 	buf := make([]byte, udpBufSize)
-	closeFlag := false
+	closed := false
 
 	logf("listening UDP on %s", addr)
 	go func() {
 		<-stop
-		closeFlag = true
+		closed = true
 		c.Close()
 	}()
+
 	for {
 		n, raddr, err := c.ReadFrom(buf)
 		if err != nil {
-			logf("UDP remote read error: %v", err)
-			if closeFlag {
+			if closed{
 				stop <- 1
 				break
 			}
+			logf("UDP remote read error: %v", err)
 			continue
 		}
 
@@ -119,7 +173,7 @@ func udpRemote(stop chan int,addr string, shadow func(net.PacketConn) net.Packet
 				continue
 			}
 
-			nm.Add(raddr, c, pc, true)
+			nm.Add(raddr, c, pc, remoteServer)
 		}
 
 		_, err = pc.WriteTo(payload, tgtUDPAddr) // accept only UDPAddr despite the signature
@@ -169,11 +223,11 @@ func (m *natmap) Del(key string) net.PacketConn {
 	return nil
 }
 
-func (m *natmap) Add(peer net.Addr, dst, src net.PacketConn, srcIncluded bool) {
+func (m *natmap) Add(peer net.Addr, dst, src net.PacketConn, role mode) {
 	m.Set(peer.String(), src)
 
 	go func() {
-		timedCopy(dst, peer, src, m.timeout, srcIncluded)
+		timedCopy(dst, peer, src, m.timeout, role)
 		if pc := m.Del(peer.String()); pc != nil {
 			pc.Close()
 		}
@@ -181,7 +235,7 @@ func (m *natmap) Add(peer net.Addr, dst, src net.PacketConn, srcIncluded bool) {
 }
 
 // copy from src to dst at target with read timeout
-func timedCopy(dst net.PacketConn, target net.Addr, src net.PacketConn, timeout time.Duration, srcIncluded bool) error {
+func timedCopy(dst net.PacketConn, target net.Addr, src net.PacketConn, timeout time.Duration, role mode) error {
 	buf := make([]byte, udpBufSize)
 
 	for {
@@ -191,14 +245,17 @@ func timedCopy(dst net.PacketConn, target net.Addr, src net.PacketConn, timeout 
 			return err
 		}
 
-		if srcIncluded { // server -> client: add original packet source
+		switch role {
+		case remoteServer: // server -> client: add original packet source
 			srcAddr := socks.ParseAddr(raddr.String())
 			copy(buf[len(srcAddr):], buf[:n])
 			copy(buf, srcAddr)
 			_, err = dst.WriteTo(buf[:len(srcAddr)+n], target)
-		} else { // client -> user: strip original packet source
+		case relayClient: // client -> user: strip original packet source
 			srcAddr := socks.SplitAddr(buf[:n])
 			_, err = dst.WriteTo(buf[len(srcAddr):n], target)
+		case socksClient: // client -> socks5 program: just set RSV and FRAG = 0
+			_, err = dst.WriteTo(append([]byte{0, 0, 0}, buf[:n]...), target)
 		}
 
 		if err != nil {

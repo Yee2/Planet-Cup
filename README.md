@@ -4,13 +4,13 @@
 
 # 安装
 ````sh
-    go get github.com/Yee2/ssMulti-user
+    go get -u github.com/Yee2/ssMulti-user
 ````
 
 # 使用
 
 ````sh
-    ./go/bin/ssMulti-user -c ./go/bin/config.json 
+    ssMulti-user -c ~/go/src/github.com/Yee2/ssMulti-user/config.json 
 ````
 
 # 配置文件说明

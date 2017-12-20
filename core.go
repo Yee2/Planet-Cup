@@ -4,7 +4,7 @@ import (
 	"github.com/Yee2/ssMulti-user/shadowsflows"
 	"log"
 	"errors"
-	"github.com/riobard/go-shadowsocks2/core"
+	"github.com/shadowsocks/go-shadowsocks2/core"
 	"fmt"
 )
 

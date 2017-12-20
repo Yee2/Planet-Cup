@@ -12,6 +12,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"encoding/json"
+	"github.com/shadowsocks/go-shadowsocks2/socks"
 )
 
 var config struct {
@@ -68,6 +69,7 @@ func main() {
 		Server string `json:"server"`
 		Key string `json:"key"`
 		Duration int64 `json:"duration"`
+		UDP bool `json:"UDPEnabled"`
 	}{}
 	err = json.Unmarshal(str,&configuration)
 
@@ -76,7 +78,7 @@ func main() {
 	}
 
 	config.Verbose = configuration.Verbose
-
+	socks.UDPEnabled = configuration.UDP
 	if configuration.Server == ""{
 		log.Fatalln("Server address can not be empty")
 	}
