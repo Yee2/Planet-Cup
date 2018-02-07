@@ -1,3 +1,4 @@
-ssMulti-user
 *.log
 /log.txt
+/webui/public/
+.idea/

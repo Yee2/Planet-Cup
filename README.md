@@ -10,7 +10,7 @@
 # 使用
 
 ````sh
-    ssMulti-user -c ~/go/src/github.com/Yee2/ssMulti-user/config.json 
+    ssMulti-user -c ~/go/src/github.com/Yee2/Planet-Cup/config.json
 ````
 
 # 配置文件说明
