@@ -1,0 +1,176 @@
+{{define "content"}}
+        <div class="row">
+            <div class="col-md-6" id="speed-chart-in-here">
+                <div class="box">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">全部端口</h3>
+                    </div>
+                    <!-- /.box-header -->
+                    <div class="box-body">
+                        <table class="table table-bordered">
+                            <tbody><tr>
+                                <th style="width: 10px">#</th>
+                                <th>端口</th>
+                                <th>密码</th>
+                                <th>加密方式</th>
+                                <th>上传</th>
+                                <th>下载</th>
+                                <th>操作</th>
+                            </tr>
+                            {{range .List}}
+                            <tr>
+                                    <td></td>
+                                    <td>{{.Port}}</td>
+                                    <td>{{.Password}}</td>
+                                    <td>{{.Cipher}}</td>
+                                    <td>{{.Up|ByteSize}}</td>
+                                    <td>{{.Down|ByteSize}}</td>
+                                    <td>
+                                        <a class="btn btn-default delete-btn" data-id="{{.Port}}">删除</a>
+                                        <a class="btn btn-default update-btn"
+                                           data-id="{{.Port}}"
+                                           data-encryption="{{.Cipher}}"
+                                           data-password="{{.Password}}">修改</a>
+                                        <a class="btn btn-default QRCode-btn"
+                                           data-id="{{.Port}}"
+                                           data-encryption="{{.Cipher}}"
+                                           data-password="{{.Password}}">二维码</a>
+                                        <a class="btn btn-default speed-btn" data-id="{{.Port}}">查看网速</a>
+                                    </td>
+                            </tr>
+                                {{end}}
+                            </tbody></table>
+                    </div>
+                    <!-- /.box-body -->
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="box box-info">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">添加一个ShadowSock服务</h3>
+                    </div>
+                    <!-- /.box-header -->
+                    <!-- form start -->
+                    <form class="form-horizontal" method="post" action="/shadowsocks/add/" id="add-form">
+                        <div class="box-body">
+                            <div class="form-group">
+                                <label for="inputEmail3" class="col-sm-2 control-label">端口</label>
+
+                                <div class="col-sm-10">
+                                    <input class="form-control" id="inputEmail3" placeholder="" type="text" name="port">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputPassword3" class="col-sm-2 control-label">密码</label>
+
+                                <div class="col-sm-10">
+                                    <input class="form-control" id="inputPassword3" placeholder="" type="text" name="password">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputPassword3" class="col-sm-2 control-label">加密方式</label>
+
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="method">
+                                        {{range .Methods}}
+                                        <option value="{{.}}">{{.}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- /.box-body -->
+                        <div class="box-footer">
+                            <a class="btn btn-default pull-right" id="add-btn">添加</a>
+                        </div>
+                        <!-- /.box-footer -->
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="modal modal-danger fade" id="modal-delete">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title">你确定删除该服务吗</h4>
+                    </div>
+                    <div class="modal-body">
+                        <p>删除后数据不可恢复</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline pull-left" data-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-outline" id="del-yes">删除</button>
+                    </div>
+                </div>
+                <!-- /.modal-content -->
+            </div>
+            <!-- /.modal-dialog -->
+        </div>
+        <!-- /.modal -->
+        <script>
+            (function () {
+                $("#add-btn").on("click",function () {
+                    var data = new FormData(document.querySelector("#add-form"));
+                    fetch("/shadowsocks" ,{
+                        method: 'POST',
+                        body:data
+                    }).then(function (value) {
+                        return value.json();
+                    }).then(function (data) {
+                        if(data.error){
+                            alert(data.error);
+                            return
+                        }
+                        if(data.message){
+                            alert(data.message);
+                            location.reload();
+                        }
+                    }).catch(function(error) {
+                        alert("请求发生错误");
+                    }).finally(function () {
+                    })
+                });
+                $(".delete-btn").on("click",function () {
+                    var id = $(this).data("id");
+                    $("#del-yes").off("click").on("click",function () {
+                        del(id);
+                    });
+                    $("#modal-delete").modal('show')
+                });
+                $(".speed-btn").on("click",function () {
+                    var id = $(this).data("id");
+                    speed_box(id);
+                });
+                $(".update-btn").on("click",function () {
+                    
+                });
+                function del(id) {
+                    fetch("/shadowsocks/" + id ,{
+                        method: 'DELETE'
+                    }).then(function (value) {
+                        return value.json();
+                    }).then(function (data) {
+                        if(data.error){
+                            alert(data.error);
+                            return
+                        }
+                        if(data.message){
+                            alert(data.message);
+                        }
+                    }).catch(function(error) {
+                        alert("请求发生错误");
+                    }).finally(function () {
+                        $("#modal-delete").modal('hide');
+                        location.reload();
+                    })
+                }
+            })();
+        </script>
+
+        {{template "speed" .}}
+        {{template "update" .}}
+        {{template "QRCode" .}}
+{{end}}
+

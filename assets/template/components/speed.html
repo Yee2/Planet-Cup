@@ -1,0 +1,112 @@
+{{define "speed"}}
+<template id="speed-box">
+    <div class="box box-info">
+        <div class="box-header with-border">
+            <h3 class="box-title">实时网速</h3>
+
+            <div class="box-tools pull-right">
+                <button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-minus"></i>
+                </button>
+                <button type="button" class="btn btn-box-tool" data-widget="remove"><i class="fa fa-times"></i></button>
+            </div>
+        </div>
+        <div class="box-body" style="height: 300px;display: flex;justify-content:center ;align-items:center;">
+            <div class="chart-container" style="height: 250px"></div>
+        </div>
+        <!-- /.box-body -->
+    </div>
+</template>
+{{/*实时刷新网速*/}}
+<script src="https://cdn.bootcss.com/highcharts/6.0.6/highcharts.src.js"></script>
+<script>
+    function bytesToSize(bytes) {
+        var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        if (bytes == 0) return '0 Byte';
+        var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+        return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+    }
+
+    var length = 30;
+    var speed_t = document.querySelector('#speed-box');
+
+    function speed_box(port) {
+        var box = new_box(),name = "端口:" + port;
+
+        Highcharts.setOptions({
+            global: {
+                useUTC: false
+            }
+        });
+
+        var chart = Highcharts.chart(box.querySelector(".chart-container"), {
+            chart: {
+                type: 'spline',
+                height: 250,
+                animation: Highcharts.svg, // don't animate in old IE
+                marginRight: 10,
+            },
+            title: {
+                text: name
+            },
+            xAxis: {
+                type: 'datetime',
+                tickInterval:5000
+            },
+            yAxis: {
+                title: {
+                    text: '速度(byte)'
+                },
+                plotLines: [{
+                    value: 0,
+                    width: 1,
+                    color: '#808080'
+                }]
+            },
+            tooltip: {
+                formatter: function () {
+                    return '<b>' + this.series.name + '</b><br/>' +
+                            Highcharts.dateFormat('%H:%M:%S', this.x) + '<br/>' +
+                            bytesToSize(this.y);
+                }
+            },
+            legend: {
+                enabled: false
+            },
+            series: [{name: '上传速度',data: []},{name: '下载速度',data: []}]
+        });
+
+        document.querySelector("#speed-chart-in-here").appendChild(box);
+        const socket = new WebSocket('ws://localhost:8080/shadowsocks/' + port + '/speed');
+        socket.addEventListener('open', function (event) {
+        });
+        // Listen for messages
+        socket.addEventListener('message', function (event) {
+            var rows = JSON.parse(event.data);
+            if(rows.error){
+                alert(rows.error);
+                return;
+            }
+            console.log(rows);
+            var series_up = chart.series[0];
+            var series_down = chart.series[1];
+            for(var i in rows){
+                series_up.addPoint([rows[i].time * 1000,rows[i].up],true,series_up.data.length > length);
+                series_down.addPoint([rows[i].time * 1000,rows[i].down],true,series_down.data.length > length);
+            }
+        });
+    }
+
+    function new_box() {
+        if ('content' in document.createElement('template')) {
+
+            // 使用现有的HTML tbody实例化表和该行与模板
+            var clone = document.importNode(speed_t.content, true);
+            return clone;
+
+        } else {
+            // 不支持模板引擎
+            return null
+        }
+    }
+</script>
+{{end}}

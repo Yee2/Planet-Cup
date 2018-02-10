@@ -1,0 +1,45 @@
+{{define "QRCode"}}
+<div class="modal fade" id="modal-QRCode">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">查看二维码</h4>
+            </div>
+            <div class="modal-body">
+                <div style="width: 100%;height: 300px;display: flex;justify-content:center ;align-items:center;">
+                    <img id="QRCodeIMG" />
+                </div>
+            </div>
+        </div>
+        <!-- /.modal-content -->
+    </div>
+    <!-- /.modal-dialog -->
+</div>
+<!-- /.modal -->
+<script src="/public/qrcode.js"></script>
+<script>
+    (function () {
+        var qrcode = new QRCode(document.querySelector("#QRCodeIMG"),{
+            text: "",
+            width: 250,
+            height: 250,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+        });
+        $(".QRCode-btn").on("click",function () {
+            var that = $(this),data = that.data.bind(that);
+            var url = "ss://" +
+                    window.btoa (
+                            data("encryption") + ":" + data("password") + "@" + window.location.hostname +
+                            ":" + data("id")
+                    );
+            console.log(url);
+            qrcode.makeCode(url);
+            $('#modal-QRCode').modal('toggle');
+        });
+    })();
+</script>
+{{end}}

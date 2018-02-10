@@ -1,0 +1,92 @@
+{{define "update"}}
+<div class="modal fade" id="modal-update">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">修改连接信息</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-12">
+
+                        <form class="form-horizontal">
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">端口</label>
+
+                                <div class="col-sm-10">
+                                    <input class="form-control" placeholder="" type="text" name="port">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">密码</label>
+
+                                <div class="col-sm-10">
+                                    <input class="form-control" placeholder="" type="text" name="password">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="inputPassword3" class="col-sm-2 control-label">加密方式</label>
+
+                                <div class="col-sm-10">
+                                    <select class="form-control" name="encryption">
+                                    {{range .Methods}}
+                                        <option value="{{.}}">{{.}}</option>
+                                    {{end}}
+                                    </select>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default pull-left" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary save-btn">保存修改</button>
+            </div>
+        </div>
+        <!-- /.modal-content -->
+    </div>
+    <!-- /.modal-dialog -->
+</div>
+<!-- /.modal -->
+<script>
+    (function () {
+        var modal = $("#modal-update");
+        modal.find(".save-btn").on("click", function () {
+            var password = modal.find('input[name="password"]').val(),
+                    encryption = modal.find('select[name="encryption"]').val(),
+                    port = modal.find('input[name="port"]').val();
+            if( !password ){
+                alert("密码不能为空")
+                return
+            }
+            var data = new FormData();
+            data.append("password",password);
+            data.append("encryption",encryption);
+            fetch("/shadowsocks/" + port,{
+                method:"PUT",
+                body:data
+            }).then(function (resp) {
+                if(resp.ok){
+                    alert("保存成功");
+                    location.reload();
+                    return
+                }
+                alert(resp.statusText)
+            }).catch(function (reason) {
+                alert("保存失败:" + reason.toString())
+            });
+
+        });
+        $(".update-btn").on("click", function () {
+            var that = $(this),data = that.data.bind(that);
+            modal.find('input[name="password"]').val(data("password"));
+            modal.find('select[name="encryption"]').val(data("encryption"));
+            modal.find('input[name="port"]').val(data("id"));
+            modal.modal("show");
+        });
+    })();
+</script>
+{{end}}
