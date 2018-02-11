@@ -36,20 +36,26 @@ func init(){
 	}
 }
 
+
 func Listen(port int){
 	logger.Info("启动ShadowSock服务")
 	tables.Boot()
 
 	router := httprouter.New()
-	router.GET("/", index)
-	router.GET("/system", system)
+	// 免登陆部分
+	router.GET("/login.html", login)
+	router.GET("/logout.html", logout)
+	router.POST("/login.html", login_chick)
 	router.ServeFiles("/public/*filepath", http.Dir("assets/public"))
-	router.GET("/shadowsocks/:port/speed", speed)
 
-	router.POST("/shadowsocks", add)
-
-	router.PUT("/shadowsocks/:port", update)
-	router.DELETE("/shadowsocks/:port", del)
+	// 登录后可看部分
+	router.GET("/", auth(index))
+	router.GET("/index.html", auth(index))
+	router.GET("/system.html", auth(system))
+	router.GET("/shadowsocks/:port/speed", auth(speed))
+	router.POST("/shadowsocks", auth(add))
+	router.PUT("/shadowsocks/:port", auth(update))
+	router.DELETE("/shadowsocks/:port", auth(del))
 
 	err := http.ListenAndServe(":8080", router)
 	if err != nil{

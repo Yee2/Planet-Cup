@@ -115,7 +115,8 @@
                     var data = new FormData(document.querySelector("#add-form"));
                     fetch("/shadowsocks" ,{
                         method: 'POST',
-                        body:data
+                        body:data,
+                        credentials:"include"
                     }).then(function (value) {
                         return value.json();
                     }).then(function (data) {
@@ -148,7 +149,8 @@
                 });
                 function del(id) {
                     fetch("/shadowsocks/" + id ,{
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        credentials:"include"
                     }).then(function (value) {
                         return value.json();
                     }).then(function (data) {

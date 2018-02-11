@@ -67,7 +67,8 @@
             data.append("encryption",encryption);
             fetch("/shadowsocks/" + port,{
                 method:"PUT",
-                body:data
+                body:data,
+                credentials:"include"
             }).then(function (resp) {
                 if(resp.ok){
                     alert("保存成功");
