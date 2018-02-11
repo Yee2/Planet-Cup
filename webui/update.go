@@ -13,11 +13,13 @@ func update(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 
 	port,err := strconv.Atoi(ps.ByName("port"))
 	if err != nil{
+		logger.Info("%s",err)
 		http.NotFound(w,r)
 		return
 	}
 	ss,ok := tables.Rows[port]
 	if !ok{
+		logger.Info("端口%d未找到",port)
 		http.NotFound(w,r)
 		return
 	}

@@ -76,7 +76,7 @@
         });
 
         document.querySelector("#speed-chart-in-here").appendChild(box);
-        const socket = new WebSocket('ws://localhost:8080/shadowsocks/' + port + '/speed');
+        const socket = new WebSocket('ws://' + window.location.host + '/shadowsocks/' + port + '/speed');
         socket.addEventListener('open', function (event) {
         });
         // Listen for messages
