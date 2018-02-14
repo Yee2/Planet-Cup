@@ -34,7 +34,7 @@ func speed(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 		}
 		resp.Encode(history)
 		for {
-			<- time.Tick(time.Second)
+			time.Sleep(time.Second)
 			up,down := ss.Speed()
 			if err := resp.Encode([]data{{up,down,time.Now().Unix()}}); err != nil{
 				logger.Info("websocket:%s",err)

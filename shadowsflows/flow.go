@@ -47,7 +47,7 @@ func (self *speed) run() {
 	self.tcp.down.run()
 	go func() {
 		for {
-			<-time.Tick(time.Second)
+			time.Sleep(time.Second)
 			self.history.Lock()
 			self.history.line[self.history.offset].up = self.tcp.up.bucket + self.udp.up.bucket
 			self.history.line[self.history.offset].down = self.tcp.down.bucket + self.udp.down.bucket
@@ -75,7 +75,7 @@ func (self Flow) String() string {
 func (self *addup) run() {
 	go func() {
 		for {
-			<-time.Tick(time.Second)
+			time.Sleep(time.Second)
 			self.Lock()
 			self.bucket = self.current
 			self.current = 0
