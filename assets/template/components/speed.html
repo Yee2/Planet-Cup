@@ -11,7 +11,7 @@
             </div>
         </div>
         <div class="box-body" style="height: 300px;display: flex;justify-content:center ;align-items:center;">
-            <div class="chart-container" style="height: 250px"></div>
+            <div class="chart-container" style="height: 250px;overflow-x: auto;"></div>
         </div>
         <!-- /.box-body -->
     </div>
@@ -31,13 +31,11 @@
 
     function speed_box(port) {
         var box = new_box(),name = "端口:" + port;
-
         Highcharts.setOptions({
             global: {
                 useUTC: false
             }
         });
-
         var chart = Highcharts.chart(box.querySelector(".chart-container"), {
             chart: {
                 type: 'spline',
@@ -74,8 +72,9 @@
             },
             series: [{name: '上传速度',data: []},{name: '下载速度',data: []}]
         });
-
         document.querySelector("#speed-chart-in-here").appendChild(box);
+        box = document.querySelector("#speed-chart-in-here>div:last-of-type");
+
         const socket = new WebSocket('ws://' + window.location.host + '/shadowsocks/' + port + '/speed');
         socket.addEventListener('open', function (event) {
         });
@@ -94,6 +93,10 @@
                 series_down.addPoint([rows[i].time * 1000,rows[i].down],true,series_down.data.length > length);
             }
         });
+        box.querySelector('.box-tools>button[data-widget="remove"]').addEventListener("click",function (e) {
+            socket.close();
+            document.querySelector("#speed-chart-in-here").removeChild(box);
+        },{once:true});
     }
 
     function new_box() {

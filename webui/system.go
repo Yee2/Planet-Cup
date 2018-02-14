@@ -7,6 +7,7 @@ import (
 	"os"
 	"code.cloudfoundry.org/bytefmt"
 	"net"
+	"html/template"
 )
 func system(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
 	info := make(map[string]interface{})
@@ -31,13 +32,23 @@ func system(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
 			for _, addr := range addrs {
 				switch v := addr.(type) {
 				case *net.IPNet:
-					ip += " \n " + v.IP.String()
+					if v.IP.String() == "127.0.0.1"{
+						continue
+					}
+					if v.IP.To4() != nil {
+						ip += "<br>" + v.IP.String()
+					}
 				case *net.IPAddr:
-					ip += " \n " + v.IP.String()
+					if v.IP.String() == "127.0.0.1"{
+						continue
+					}
+					if v.IP.To4() != nil {
+						ip += "<br>" + v.IP.String()
+					}
 				}
 			}
 		}
-		info["IP 地址"] = ip
+		info["IP 地址"] = template.HTML(ip)
 	}
 	view_refresh(w,"system", struct {
 		Info interface{}

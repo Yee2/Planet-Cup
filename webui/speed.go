@@ -21,6 +21,7 @@ func speed(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 		return
 	}
 	websocket.Handler(func(ws *websocket.Conn) {
+		defer ws.Close()
 		type data struct {
 			X int `json:"up"`
 			Y int `json:"down"`
@@ -35,7 +36,10 @@ func speed(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 		for {
 			<- time.Tick(time.Second)
 			up,down := ss.Speed()
-			resp.Encode([]data{{up,down,time.Now().Unix()}})
+			if err := resp.Encode([]data{{up,down,time.Now().Unix()}}); err != nil{
+				logger.Info("websocket:%s",err)
+				break
+			}
 		}
 	}).ServeHTTP(w,r)
 }
