@@ -11,8 +11,9 @@ import (
 	"syscall"
 )
 func main()  {
+
 	go ylog.Print()
-	webui.Listen(8080)
+	webui.Listen()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

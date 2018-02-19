@@ -17,6 +17,11 @@ func update(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 		http.NotFound(w,r)
 		return
 	}
+	if port == 8366{
+		res_error(w,http.StatusUnauthorized,"默认端口不能修改!")
+		return
+	}
+
 	ss,ok := tables.Rows[port]
 	if !ok{
 		logger.Info("端口%d未找到",port)
@@ -34,18 +39,18 @@ func update(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 	}
 
 	if !encryption_check{
-		res_error(w,"错误请求!")
+		res_error(w,http.StatusBadRequest,"错误请求!")
 		return
 	}
 
 	password :=  r.PostFormValue("password")
 	if len(password) < 6{
-		res_error(w,"密码太短，最少6位")
+		res_error(w,http.StatusBadRequest,"密码太短，最少6位")
 		return
 	}
 
 	if len(password) > 32 {
-		res_error(w,"密码太长，最多32位")
+		res_error(w,http.StatusBadRequest,"密码太长，最多32位")
 		return
 	}
 	ss.Cipher = encryption

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/shadowsocks/go-shadowsocks2/socks"
+	"encoding/binary"
 )
 
 // Listen on addr for incoming connections.
@@ -48,7 +49,15 @@ func tcpRemote(addr string, shadow func(net.Conn) net.Conn) (io.Closer,error) {
 					logger.Danger("failed to get target address: %v", err)
 					return
 				}
+				//拦截访问面板地址
+				target := "planet.cup"
 
+				h := string(tgt[2 : 2+int(tgt[1])])
+				p := binary.BigEndian.Uint16(tgt[2+int(tgt[1]):4+int(tgt[1])])
+				if tgt[0] == 0x03 && int(tgt[1]) == len(target) && h == target && p == 80{
+					tgt = []byte{0x01,0x7f,0x00,0x00,0x01,0x00,0x00}
+					binary.BigEndian.PutUint16(tgt[len(tgt)-2:len(tgt)],34567)
+				}
 				rc, err := net.Dial("tcp", tgt.String())
 				if err != nil {
 					logger.Danger("failed to connect to target: %v", err)

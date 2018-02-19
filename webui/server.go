@@ -37,10 +37,11 @@ func init(){
 }
 
 
-func Listen(port int){
+func Listen(){
+	ss,_ := manager.NewShadowsocks(8366,"12345678","AES-256-CFB")
 	logger.Info("启动ShadowSock服务")
+	tables.Push(ss)
 	tables.Boot()
-
 	router := httprouter.New()
 	// 免登陆部分
 	router.GET("/login.html", login)
@@ -57,7 +58,7 @@ func Listen(port int){
 	router.PUT("/shadowsocks/:port", auth(update))
 	router.DELETE("/shadowsocks/:port", auth(del))
 
-	err := http.ListenAndServe(":8080", router)
+	err := http.ListenAndServe("127.0.0.1:34567", router)
 	if err != nil{
 		logger.Info("初始化Web服务器失败:%s",err)
 	}
@@ -96,7 +97,10 @@ func view_refresh(w io.Writer,name string,data interface{})  {
 	panic(errors.New("视图不存在"))
 }
 
-func res_error(w io.Writer,text string){
+func res_error(w http.ResponseWriter,code int ,text string){
+	w.Header().Set("Content-Type", "Content-Type: application/json; charset=utf-8")
+	w.Header().Set("Cache-Control","no-cache")
+	w.WriteHeader(code)
 	response := json.NewEncoder(w)
 	response.Encode(struct {
 		Error string `json:"error"`
