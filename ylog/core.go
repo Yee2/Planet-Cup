@@ -21,6 +21,20 @@ type Log struct {
 
 type Level int
 
+func (self Level) String() string {
+	switch self {
+	case DANGER:
+		return "danger"
+	case SUCCESS:
+		return "success"
+	case WARNING:
+		return "warning"
+	case INFO:
+		return "info"
+	default:
+		return "notice"
+	}
+}
 const (
 	_ Level  = iota
 	SUCCESS
@@ -31,16 +45,19 @@ const (
 
 var (
 	logs = struct{
-		pool map[string][1024]*Log
-		*sync.Mutex
-	}{make(map[string][1024]*Log),new(sync.Mutex)}
-
-	listener chan *Log
+		pool map[string]*Logger
+		sync.Mutex
+	}{make(map[string]*Logger),sync.Mutex{}}
 )
+func GetAll() map[string]*Logger {
+	return logs.pool
+}
 
 type Logger struct {
 	key string
 	offset int
+	list [1024]*Log
+	sync.Mutex
 }
 
 func NewLogger(name string) *Logger{
@@ -50,10 +67,10 @@ func NewLogger(name string) *Logger{
 	if _,ok := logs.pool[name]; ok{
 		panic(errors.New("this name already exists"))
 	}
-	logger := &Logger{name,0}
+	logger := &Logger{key:name,offset:0,list:[1024]*Log{}}
 	logs.Lock()
 	defer logs.Unlock()
-	logs.pool[name] = [1024]*Log{}
+	logs.pool[name] = logger
 	return logger
 }
 func (self *Logger)next(){
@@ -61,6 +78,20 @@ func (self *Logger)next(){
 	if self.offset >= 1024{
 		self.offset -= 1024
 	}
+}
+func (self *Logger)All()[]*Log{
+	r := make([]*Log,0,1024)
+	for i := 1023; i >= 0 ;i --{
+		key := i + self.offset
+		if key >= 1024{
+			key -= 1024
+		}
+		if self.list[key] == nil{
+			break
+		}
+		r = append(r,self.list[key])
+	}
+	return  r
 }
 
 func (self *Logger)insert(level Level,Content string, agrs []interface{})  {
@@ -73,16 +104,10 @@ func (self *Logger)insert(level Level,Content string, agrs []interface{})  {
 		Content:Content,
 		Level:level,
 	}
-	logs.Lock()
-	defer logs.Unlock()
-	if logger,ok := logs.pool[self.key]; ok{
-		logger[self.offset] = log
-	}else{
-		logs.pool[self.key] = [1024]*Log{log}
-	}
-	if listener != nil{
-		listener <- log
-	}
+	self.Lock()
+	defer self.Unlock()
+	self.list[self.offset] = log
+	go broadcast(log)//广播最新日志
 	self.next()
 }
 func (self *Logger)Info(Content string, agrs ... interface{})  {

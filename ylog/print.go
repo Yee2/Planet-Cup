@@ -7,12 +7,13 @@ import (
 	"bytes"
 )
 func Print()  {
-	listener = make(chan *Log,10)
-	defer func() {
-		close(listener)
-		listener = nil
-	}()
-	for log := range listener{
+	listener := NewReceiver()
+	defer listener.Close()
+	for {
+		log,err := listener.Receive()
+		if err !=nil{
+			break
+		}
 		var level string
 		switch log.Level {
 		case INFO:

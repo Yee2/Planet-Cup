@@ -9,10 +9,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 func main()  {
 
 	go ylog.Print()
+	time.Sleep(time.Second)
 	webui.Listen()
 
 	sigCh := make(chan os.Signal, 1)

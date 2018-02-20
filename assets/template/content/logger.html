@@ -1,0 +1,35 @@
+{{define "content"}}
+<div class="row">
+    <div class="col-md-6">
+
+        <div class="box">
+            <div class="box-header">
+                <h3 class="box-title">系统日志</h3>
+            </div>
+            <!-- /.box-header -->
+            <div class="box-body table-responsive table-bordered no-padding">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>分类</th>
+                        <th style="min-width: 120px">日期</th>
+                        <th>内容</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {{range $i,$log := .Logs}}
+                    <tr class="{{$log.Level}}">
+                        <td>{{$log.Class}}</td>
+                        <td>{{$log.Date|Date}}</td>
+                        <td title="{{$log.File}}:{{$log.Line}}">{{$log.Content}}</td>
+                    </tr>
+                            {{end}}
+                    </tbody></table>
+            </div>
+            <!-- /.box-body -->
+        </div>
+        <!-- /.box -->
+
+    </div>
+</div>
+{{end}}

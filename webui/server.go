@@ -12,6 +12,7 @@ import (
 	"github.com/Yee2/Planet-Cup/manager"
 	"code.cloudfoundry.org/bytefmt"
 	"github.com/julienschmidt/httprouter"
+	"time"
 )
 var (
 	view_entry *template.Template
@@ -22,7 +23,7 @@ var (
 var mux = &http.ServeMux{}
 var logger = ylog.NewLogger("web-UI")
 var tables =  manager.NewTable()
-var base = template.New("base").Funcs(template.FuncMap{"ByteSize": ByteSize})
+var base = template.New("base").Funcs(template.FuncMap{"ByteSize": ByteSize,"Date":date})
 
 func init(){
 	views = make(map[string]*template.Template)
@@ -53,6 +54,7 @@ func Listen(){
 	router.GET("/", auth(index))
 	router.GET("/index.html", auth(index))
 	router.GET("/system.html", auth(system))
+	router.GET("/logger.html", auth(logs))
 	router.GET("/shadowsocks/:port/speed", auth(speed))
 	router.POST("/shadowsocks", auth(add))
 	router.PUT("/shadowsocks/:port", auth(update))
@@ -126,6 +128,16 @@ func ByteSize(args ...interface{}) string{
 		if size,err := strconv.Atoi(str);err == nil{
 			return bytefmt.ByteSize(uint64(size))
 		}
+	}
+	return ""
+}
+func date(args ...interface{}) string{
+	if len(args) == 0{
+		return  ""
+	}
+	if timestamp,ok := args[0].(int64); ok{
+		t := time.Unix(timestamp,0)
+		return t.Format(time.ANSIC)
 	}
 	return ""
 }
