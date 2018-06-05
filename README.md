@@ -23,7 +23,9 @@
 # 使用
 
 ```sh
-    Planet-Cup -c ~/go/src/github.com/Yee2/Planet-Cup/config.json
+    # 由于路径问题，必须在下面目录执行命令
+    cd ~/go/src/github.com/Yee2/Planet-Cup/
+    ~/go/bin/Planet-Cup -c ~/go/src/github.com/Yee2/Planet-Cup/config.json
 ```
 # 如何访问
 
