@@ -3,3 +3,4 @@
 /webui/public/
 .idea/
 /webui/AssetsData.go
+/release/*
