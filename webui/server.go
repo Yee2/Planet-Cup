@@ -48,7 +48,13 @@ func Listen(){
 	router.GET("/login.html", login)
 	router.GET("/logout.html", logout)
 	router.POST("/login.html", login_chick)
-	router.ServeFiles("/public/*filepath", http.Dir("assets/public"))
+	if FileHandle != nil{
+		logger.Info("使用文件内置资源")
+		router.ServeFiles("/public/*filepath", FileHandle)
+	}else{
+		logger.Info("使用外置静态资源")
+		router.ServeFiles("/public/*filepath", http.Dir("assets/public"))
+	}
 
 	// 登录后可看部分
 	router.GET("/", auth(index))
@@ -60,7 +66,7 @@ func Listen(){
 	router.PUT("/shadowsocks/:port", auth(update))
 	router.DELETE("/shadowsocks/:port", auth(del))
 
-	err := http.ListenAndServe("127.0.0.1:34567", router)
+	err := http.ListenAndServe("0.0.0.0:34567", router)
 	if err != nil{
 		logger.Info("初始化Web服务器失败:%s",err)
 	}
