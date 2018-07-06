@@ -13,7 +13,7 @@ import (
 
 type Resources struct {
 	w io.WriteCloser
-	i uint16
+	i uint16 //写入字节数
 }
 
 func (r *Resources) Write(p []byte) (n int, err error) {
@@ -24,9 +24,9 @@ func (r *Resources) Write(p []byte) (n int, err error) {
 		n ++
 		if err != nil {
 			break
-		}else{
+		} else {
 			r.i ++
-			if r.i%20 == 0{
+			if r.i%20 == 0 {
 				w.WriteString("\n")
 			}
 		}
@@ -34,7 +34,7 @@ func (r *Resources) Write(p []byte) (n int, err error) {
 	return
 }
 func (r *Resources) Close() error {
-	r.w.Write([]byte{'}'})
+	r.w.Write([]byte("}\r\n}"))
 	return r.w.Close()
 }
 func R(file, name string) (r *Resources, err error) {
@@ -44,14 +44,19 @@ func R(file, name string) (r *Resources, err error) {
 	}
 	fd.Truncate(0)
 	fd.WriteString(fmt.Sprintf(`package webui
-var %s = []byte{
+func init(){
+	%s = []byte{
 `, name))
-	return &Resources{fd,0}, nil
+	return &Resources{fd, 0}, nil
 }
 
-func main()  {
-	tarfs,err := R("webui/AssetsData.go","AssetsData")
-	if err != nil{
+func main() {
+	f1()
+	f2()
+}
+func f1()  {
+	tarfs, err := R("webui/AssetsData.go", "AssetsData")
+	if err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -59,48 +64,71 @@ func main()  {
 	defer writer.Flush()
 	defer writer.Close()
 	defer tarfs.Close()
-	err = file2tar(writer,"assets/public/","assets/public/")
-	if err != nil{
+	err = file2tar(writer, "assets/public/", "assets/public/")
+	if err != nil {
 		fmt.Println(err)
-	}else{
-		fmt.Println("操作完成!\n")
+	} else {
+		fmt.Println("操作完成!")
 	}
 }
-
-func file2tar(w *tar.Writer,basedir,name string) (e error ){
+func f2()  {
+	tarfs, err := R("webui/TemplateAssets.go", "TemplateAssets")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	writer := tar.NewWriter(tarfs)
+	defer writer.Flush()
+	defer writer.Close()
+	defer tarfs.Close()
+	err = file2tar(writer, "assets/template/", "assets/template/")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("操作完成!")
+	}
+}
+func file2tar(w *tar.Writer, basedir, name string) (e error) {
+	name = Windows2Linux(name)
 	defer func() {
-		if err := recover(); err != nil{
+		if err := recover(); err != nil {
 			e = err.(error)
 		}
 	}()
-	files,err := ioutil.ReadDir(name)
-	if err != nil{
+	files, err := ioutil.ReadDir(name)
+	if err != nil {
 		return err
 	}
-	for _,file := range files{
-		if file.IsDir(){
-			file2tar(w,basedir,filepath.Join(name,file.Name()))
-		}else{
-			info,err := tar.FileInfoHeader(file,"")
+	fmt.Printf("压缩%s",name)
+	for _, file := range files {
+		if file.IsDir() {
+			fmt.Println()
+			file2tar(w, basedir, filepath.Join(name, file.Name()))
+		} else {
+			info, err := tar.FileInfoHeader(file, "")
 			letItDie(err)
-
-			info.Name = strings.TrimPrefix(filepath.Join(name,file.Name()) ,basedir)
-			fmt.Println("添加文件:",info.Name)
+			info.Name = strings.TrimPrefix(Windows2Linux(filepath.Join(name, file.Name())), basedir)
+			fmt.Print(".")
 			err = w.WriteHeader(info)
 			letItDie(err)
-			f,err := os.Open(filepath.Join(name,file.Name()))
+			f, err := os.Open(filepath.Join(name, file.Name()))
 			letItDie(err)
-			data,err := ioutil.ReadAll(f)
+			data, err := ioutil.ReadAll(f)
 			letItDie(err)
-			_,err = w.Write(data)
+			_, err = w.Write(data)
 			letItDie(err)
 		}
 	}
+	fmt.Println()
 	return nil
 }
 
-func letItDie(err error)  {
-	if err != nil{
+func letItDie(err error) {
+	if err != nil {
 		panic(err)
 	}
+}
+
+func Windows2Linux(s string)(string){
+	return strings.Replace(s,"\\","/",-1)
 }

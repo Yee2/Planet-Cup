@@ -12,7 +12,7 @@ var (
 )
 
 func index(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
-	view_refresh(w,"index", struct {
+	view(w,"index", struct {
 		Methods interface{}
 		List map[int]*manager.Shadowsocks
 	}{Methods:shadowsocks_methods,List:tables.Rows})

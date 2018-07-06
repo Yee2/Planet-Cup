@@ -6,15 +6,14 @@ import (
 	"os"
 	"errors"
 	"archive/tar"
-	"strings"
 	"io"
+	"strings"
 )
-var FileHandle Assets
-func init()  {
-	FileHandle = make(Assets)
-	r := bytes.NewReader(AssetsData)
-	tr := tar.NewReader(r)
 
+func NewAssets(data []byte)(Assets,error){
+	res := make(Assets)
+	r := bytes.NewReader(data)
+	tr := tar.NewReader(r)
 
 	for {
 		hdr,err := tr.Next()
@@ -22,24 +21,22 @@ func init()  {
 			break
 		}
 		if err != nil {
-			panic(err)
+			return nil,err
 		}
 
 		data := make([]byte,hdr.Size)
 		_,err = tr.Read(data)
 		if err != io.EOF && err != nil{
-			panic(err)
+			return nil,err
 		}
 		path := hdr.Name
 		if !strings.HasPrefix(path,"/"){
 			path = "/" + hdr.Name
 		}
-		FileHandle[path] = &File{Reader:bytes.NewReader(data),FileInfo:hdr.FileInfo()}
-
-
+		res[path] = &File{Reader:bytes.NewReader(data),FileInfo:hdr.FileInfo()}
 	}
+	return res,nil
 }
-
 type Assets map[string]*File
 
 func (asset Assets)Open(name string) (http.File,error) {

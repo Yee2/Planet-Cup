@@ -23,7 +23,7 @@ func logs(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
 		}
 	}
 	sort.Sort(Logs)
-	view_refresh(w,"logger", struct {
+	view(w,"logger", struct {
 		Logs interface{}
 	}{Logs})
 }

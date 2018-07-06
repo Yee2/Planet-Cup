@@ -50,7 +50,7 @@ func system(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
 		}
 		info["IP 地址"] = template.HTML(ip)
 	}
-	view_refresh(w,"system", struct {
+	view(w,"system", struct {
 		Info interface{}
 	}{info})
 }
