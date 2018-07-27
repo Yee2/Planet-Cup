@@ -87,7 +87,7 @@ func Listen() {
 	// 免登陆部分
 	router.GET("/login.html", login)
 	router.GET("/logout.html", logout)
-	router.POST("/login.html", login_chick)
+	router.POST("/login.html", loginVerify)
 
 	if len(AssetsData) > 0 {
 
@@ -107,6 +107,8 @@ func Listen() {
 	router.GET("/index.html", auth(index))
 	router.GET("/system.html", auth(system))
 	router.GET("/logger.html", auth(logs))
+	router.POST("/password.html", auth(Password))
+
 	router.GET("/shadowsocks/:port/speed", auth(speed))
 	router.POST("/shadowsocks", auth(add))
 	router.PUT("/shadowsocks/:port", auth(update))

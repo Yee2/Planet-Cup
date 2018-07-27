@@ -41,7 +41,19 @@ func login(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
 	t := template.Must(template.ParseFiles("assets/template/components/head.html","assets/template/login.html"))
 	t.ExecuteTemplate(w,"login",nil)
 }
-func login_chick(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
+
+func loginFail(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
+	if isLogin(w,r) {
+		http.Redirect(w,r,"/index.html",301)
+		return
+	}
+	t := template.Must(template.ParseFiles("assets/template/components/head.html","assets/template/login.html"))
+	t.ExecuteTemplate(w,"login", struct {
+		Message string
+	}{"用户名或密码错误，请重试。"})
+}
+
+func loginVerify(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 	if r.PostFormValue("user") == user && r.PostFormValue("password") == password{
 		key := RandStr(8)
 		session.Lock()
@@ -52,7 +64,7 @@ func login_chick(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 		http.Redirect(w,r,"/index.html",301)
 		return
 	}
-	login(w,r,ps)
+	loginFail(w,r,ps)
 }
 func logout(w http.ResponseWriter,r *http.Request, ps httprouter.Params) {
 	cookie, err := r.Cookie("session_key")

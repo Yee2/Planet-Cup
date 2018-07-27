@@ -40,23 +40,23 @@
     "internal/subtle",
     "poly1305"
   ]
-  revision = "027cca12c2d63e3d62b670d901e8a2c95854feec"
+  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["websocket"]
-  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
+  revision = "292b43bbf7cb8d35ddf40f8d5100ef3837cced3f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["cpu"]
-  revision = "6c888cc515d3ed83fc103cf1d84468aad274b0a7"
+  revision = "1b2967e3c290b7c545b3db0deeda16e9be4f98a2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "84e43fc22bb6d2b41e15fc581b8fa874558edcf5b03a2055730de0ae46717a9d"
+  inputs-digest = "d9f71fc8c8ec2dbf1a6de89afad173eb540dc4f4f7c7092cccc04bbcd85672f6"
   solver-name = "gps-cdcl"
   solver-version = 1
