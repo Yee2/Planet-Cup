@@ -33,6 +33,7 @@ var logger = ylog.NewLogger("web-UI")
 var tables = manager.NewTable()
 var base = template.New("base").Funcs(template.FuncMap{"ByteSize": ByteSize, "Date": date})
 var initial = false
+
 func viewInitial() {
 	logger.Info("初始化模板资源...")
 	views = make(map[string]*template.Template)
@@ -42,24 +43,24 @@ func viewInitial() {
 		assets, err := NewAssets(TemplateAssets)
 		letItDie(err)
 		if resource, ok := assets["/entry.html"]; ok {
-			data,err := ioutil.ReadAll(resource)
+			data, err := ioutil.ReadAll(resource)
 			letItDie(err)
 			view_entry = template.Must(base.Parse(string(data)))
-		}else{
+		} else {
 			panic(errors.New("无法读取入口文件"))
 		}
 		// 加载全部组件
-		for name := range assets{
-			if strings.HasPrefix(name,"/components/") && strings.HasSuffix(name,".html"){
-				data,err := ioutil.ReadAll(assets[name])
+		for name := range assets {
+			if strings.HasPrefix(name, "/components/") && strings.HasSuffix(name, ".html") {
+				data, err := ioutil.ReadAll(assets[name])
 				letItDie(err)
 				view_entry = template.Must(base.Parse(string(data)))
 			}
 		}
 
-		for name := range assets{
-			if strings.HasPrefix(name,"/content/") && strings.HasSuffix(name,".html"){
-				data,err := ioutil.ReadAll(assets[name])
+		for name := range assets {
+			if strings.HasPrefix(name, "/content/") && strings.HasSuffix(name, ".html") {
+				data, err := ioutil.ReadAll(assets[name])
 				letItDie(err)
 				views[filepath.Base(name)] = template.Must(template.Must(view_entry.Clone()).Parse(string(data)))
 			}
@@ -79,9 +80,11 @@ func viewInitial() {
 }
 
 func Listen() {
-	ss, _ := manager.NewShadowsocks(8366, "12345678", "AES-256-CFB")
 	logger.Info("启动ShadowSock服务")
-	tables.Push(ss)
+	err := tables.Load("data.json")
+	if err != nil{
+		logger.Danger("%s",err)
+	}
 	tables.Boot()
 	router := httprouter.New()
 	// 免登陆部分
@@ -114,10 +117,21 @@ func Listen() {
 	router.PUT("/shadowsocks/:port", auth(update))
 	router.DELETE("/shadowsocks/:port", auth(del))
 
-	err := http.ListenAndServe("0.0.0.0:34567", router)
-	if err != nil {
-		logger.Info("初始化Web服务器失败:%s", err)
-	}
+	go func() {
+		for {
+			time.Sleep(time.Minute * 10)
+			err := tables.Save("data.json")
+			if err != nil {
+				logger.Danger("保存数据失败:%s", err)
+			}
+		}
+	}()
+	go func() {
+		err := http.ListenAndServe("0.0.0.0:34567", router)
+		if err != nil {
+			logger.Info("初始化Web服务器失败:%s", err)
+		}
+	}()
 }
 
 func letItDie(err error) {
@@ -136,7 +150,7 @@ func view(w io.Writer, name string, data interface{}) {
 		return
 	}
 
-	panic(fmt.Errorf("视图不存在：%s",name+".html"))
+	panic(fmt.Errorf("视图不存在：%s", name+".html"))
 }
 
 func res_error(w http.ResponseWriter, code int, text string) {

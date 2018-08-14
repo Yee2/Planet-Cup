@@ -10,7 +10,11 @@ import (
 	"net"
 	"strconv"
 	"io"
+	"os"
+	"encoding/json"
 )
+
+const save_flag = "YeeShadowSocksPanel_v0.1"
 
 type Shadowsocks struct {
 	Addr     string
@@ -18,14 +22,14 @@ type Shadowsocks struct {
 	Password string
 	Cipher   string
 	*shadowsflows.Flow
-	key      []byte
-	tcp      io.Closer
-	udp      io.Closer
+	key []byte
+	tcp io.Closer
+	udp io.Closer
 }
 
 func NewShadowsocks(port int, password, method string) (*Shadowsocks, error) {
 	if port < 1 || port > 65535 {
-		return nil, errors.New("Port error!")
+		return nil, errors.New("port error")
 	}
 	return &Shadowsocks{
 		Port:     port,
@@ -61,14 +65,14 @@ func (self *Shadowsocks) Start() error {
 func (self *Shadowsocks) Stop() error {
 	if self.tcp != nil {
 		if err := self.tcp.Close(); err != nil {
-			logger.Warning("停止TCP监听发生错误:%s，端口:%d",err,self.Port)
+			logger.Warning("停止TCP监听发生错误:%s，端口:%d", err, self.Port)
 			return err
 		}
 		self.tcp = nil
 	}
 	if self.udp != nil {
 		if err := self.udp.Close(); err != nil {
-			logger.Warning("停止UDP监听发生错误:%s，端口:%d",err,self.Port)
+			logger.Warning("停止UDP监听发生错误:%s，端口:%d", err, self.Port)
 			return err
 		}
 		self.udp = nil
@@ -178,4 +182,69 @@ func (self *Table) Del(id int) error {
 		return nil
 	}
 	return errors.New(fmt.Sprintf("Port %d No Found!", id))
+}
+
+func (t *Table) Save(name string) (e error) {
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	f.Truncate(0)
+	//_, err = f.Write([]byte(save_flag))
+	//if err != nil {
+	//	return err
+	//}
+	//_, err = f.Write([]byte{0xff, 0xff})
+	//if err != nil {
+	//	return err
+	//}
+	data := []struct {
+		Port     int
+		Password string
+		Cipher   string
+		Up       int
+		Down     int
+	}{}
+	for _, ss := range t.Rows {
+		data = append(data, struct {
+			Port     int
+			Password string
+			Cipher   string
+			Up       int
+			Down     int
+		}{ss.Port, ss.Password, ss.Cipher, ss.Flow.Up, ss.Flow.Down})
+	}
+	str, err := json.Marshal(data)
+	_, err = f.Write(str)
+	return err
+}
+
+func (t *Table) Load(file string) (error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	data := []struct {
+		Port     int
+		Password string
+		Cipher   string
+		Up       int
+		Down     int
+	}{}
+	decoder := json.NewDecoder(f)
+	if err := decoder.Decode(&data); err != nil {
+		return err
+	}
+	for i := range data{
+		ss,err := NewShadowsocks(data[i].Port,data[i].Password,data[i].Cipher)
+		if err != nil{
+			logger.Danger("%s",err)
+		}
+		ss.Flow.Up = data[i].Up
+		ss.Flow.Down = data[i].Down
+		t.Add(ss)
+	}
+	return nil
 }
