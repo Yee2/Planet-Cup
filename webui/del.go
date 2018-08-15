@@ -14,10 +14,6 @@ func del(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 		res_error(w,400,"错误请求!")
 		return
 	}
-	if port == 8366{
-		res_error(w,401,"默认端口不能修改!")
-		return
-	}
 
 	if err := tables.Del(port); err != nil{
 		res_error(w,404,"删除失败，可能服务不错在!")

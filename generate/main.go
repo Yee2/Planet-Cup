@@ -34,7 +34,7 @@ func (r *Resources) Write(p []byte) (n int, err error) {
 	return
 }
 func (r *Resources) Close() error {
-	r.w.Write([]byte("}\r\n}"))
+	r.w.Write([]byte("\n}"))
 	return r.w.Close()
 }
 func R(file, name string) (r *Resources, err error) {
@@ -43,10 +43,7 @@ func R(file, name string) (r *Resources, err error) {
 		return nil, err
 	}
 	fd.Truncate(0)
-	fd.WriteString(fmt.Sprintf(`package webui
-func init(){
-	%s = []byte{
-`, name))
+	fd.WriteString(fmt.Sprintf("package webui\n\nvar %s = [...]byte{\n", name))
 	return &Resources{fd, 0}, nil
 }
 

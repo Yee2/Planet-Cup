@@ -17,10 +17,6 @@ func update(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
 		http.NotFound(w,r)
 		return
 	}
-	if port == 8366{
-		res_error(w,http.StatusUnauthorized,"默认端口不能修改!")
-		return
-	}
 
 	ss,ok := tables.Rows[port]
 	if !ok{

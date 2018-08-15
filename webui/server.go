@@ -7,15 +7,17 @@ import (
 	"io"
 	"errors"
 	"strconv"
-	"github.com/Yee2/Planet-Cup/ylog"
 	"encoding/json"
-	"github.com/Yee2/Planet-Cup/manager"
-	"code.cloudfoundry.org/bytefmt"
-	"github.com/julienschmidt/httprouter"
 	"time"
 	"io/ioutil"
 	"strings"
 	"fmt"
+
+	"github.com/Yee2/Planet-Cup/ylog"
+	"github.com/Yee2/Planet-Cup/manager"
+	"code.cloudfoundry.org/bytefmt"
+	"github.com/julienschmidt/httprouter"
+	"github.com/fsnotify/fsnotify"
 )
 
 var (
@@ -24,30 +26,27 @@ var (
 	err        error
 )
 
-// 静态资源部分
-var AssetsData []byte
-var TemplateAssets []byte
-
 var mux = &http.ServeMux{}
 var logger = ylog.NewLogger("web-UI")
 var tables = manager.NewTable()
 var base = template.New("base").Funcs(template.FuncMap{"ByteSize": ByteSize, "Date": date})
+var BuiltIn = true
 var initial = false
 
 func viewInitial() {
-	logger.Info("初始化模板资源...")
+	logger.Info("Initialize template resources")
 	views = make(map[string]*template.Template)
-	if len(TemplateAssets) > 0 {
-		logger.Info("使用内置模板资源...")
+	if BuiltIn {
+		logger.Info("Use built-in template resources")
 		// 使用内置的资源
-		assets, err := NewAssets(TemplateAssets)
+		assets, err := NewAssets(TemplateAssets[:])
 		letItDie(err)
 		if resource, ok := assets["/entry.html"]; ok {
 			data, err := ioutil.ReadAll(resource)
 			letItDie(err)
 			view_entry = template.Must(base.Parse(string(data)))
 		} else {
-			panic(errors.New("无法读取入口文件"))
+			panic(errors.New("unable to read the entry file"))
 		}
 		// 加载全部组件
 		for name := range assets {
@@ -68,19 +67,51 @@ func viewInitial() {
 
 	} else {
 		// 使用本地路径资源
-		view_entry = template.Must(base.ParseFiles("assets/template/entry.html"))
-		view_entry, err = view_entry.ParseGlob("assets/template/components/*.html")
+		watch, err := fsnotify.NewWatcher();
 		letItDie(err)
-		files, err := filepath.Glob("assets/template/content/*.html")
-		letItDie(err)
-		for _, f := range files {
-			views[filepath.Base(f)] = template.Must(template.Must(view_entry.Clone()).ParseFiles(f))
-		}
+		defer watch.Close()
+		letItDie(watch.Add("assets/template"))
+		viewRefresh()
+		go func() {
+			for {
+				select {
+				case <-watch.Events:
+					{
+						viewRefresh()
+					}
+				case err := <-watch.Errors:
+					{
+						if err != nil{
+							logger.Danger("%s",err)
+							return
+						}
+					}
+				}
+			}
+		}()
+
 	}
 }
-
+func viewRefresh()  {
+	entry := template.Must(base.ParseFiles("assets/template/entry.html"))
+	entry, err = view_entry.ParseGlob("assets/template/components/*.html")
+	if err != nil{
+		logger.Warning("%s",err)
+		return
+	}
+	view_entry = entry
+	files, err := filepath.Glob("assets/template/content/*.html")
+	letItDie(err)
+	for _, f := range files {
+		t,err := template.Must(view_entry.Clone()).ParseFiles(f)
+		if err != nil{
+			logger.Warning("%s",err)
+			continue
+		}
+		views[filepath.Base(f)] = t
+	}
+}
 func Listen() {
-	logger.Info("启动ShadowSock服务")
 	err := tables.Load("data.json")
 	if err != nil{
 		logger.Danger("%s",err)
@@ -92,16 +123,15 @@ func Listen() {
 	router.GET("/logout.html", logout)
 	router.POST("/login.html", loginVerify)
 
-	if len(AssetsData) > 0 {
-
-		FileHandle, err := NewAssets(AssetsData)
+	if BuiltIn {
+		FileHandle, err := NewAssets(AssetsData[:])
 		if err != nil {
 			panic(err)
 		}
-		logger.Info("使用文件内置资源")
+		logger.Info("Use file built-in resources")
 		router.ServeFiles("/public/*filepath", FileHandle)
 	} else {
-		logger.Info("使用外置静态资源")
+		logger.Info("Use external static resources")
 		router.ServeFiles("/public/*filepath", http.Dir("assets/public"))
 	}
 
@@ -122,14 +152,14 @@ func Listen() {
 			time.Sleep(time.Minute * 10)
 			err := tables.Save("data.json")
 			if err != nil {
-				logger.Danger("保存数据失败:%s", err)
+				logger.Danger("saving data failed:%s", err)
 			}
 		}
 	}()
 	go func() {
 		err := http.ListenAndServe("0.0.0.0:34567", router)
 		if err != nil {
-			logger.Info("初始化Web服务器失败:%s", err)
+			logger.Info("initializing the web server failed:%s", err)
 		}
 	}()
 }
@@ -150,7 +180,7 @@ func view(w io.Writer, name string, data interface{}) {
 		return
 	}
 
-	panic(fmt.Errorf("视图不存在：%s", name+".html"))
+	panic(fmt.Errorf("view does not exist：%s", name+".html"))
 }
 
 func res_error(w http.ResponseWriter, code int, text string) {
