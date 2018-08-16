@@ -13,6 +13,12 @@ import (
 )
 func main()  {
 
+	for i := range os.Args{
+		if os.Args[i] == "--dev"{
+			webui.BuiltIn = false
+			break
+		}
+	}
 	go ylog.Print()
 	time.Sleep(time.Second)
 	webui.Listen()

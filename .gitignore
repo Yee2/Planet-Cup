@@ -1,7 +1,8 @@
 *.log
 /log.txt
 /webui/public/
-.idea/
+/.idea/
 /webui/AssetsData.go
 /webui/TemplateAssets.go
 /release/*
+/vendor/
