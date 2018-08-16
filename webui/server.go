@@ -67,32 +67,62 @@ func viewInitial() {
 
 	} else {
 		// 使用本地路径资源
-		watch, err := fsnotify.NewWatcher();
-		letItDie(err)
-		defer watch.Close()
-		letItDie(watch.Add("assets/template"))
-		viewRefresh()
-		go func() {
-			for {
-				select {
-				case <-watch.Events:
-					{
-						viewRefresh()
-					}
-				case err := <-watch.Errors:
-					{
-						if err != nil{
-							logger.Danger("%s",err)
-							return
-						}
-					}
-				}
-			}
-		}()
+		refresh()
+		daemon()
 
 	}
 }
-func viewRefresh()  {
+func daemon()  {
+	watch, err := fsnotify.NewWatcher()
+	letItDie(err)
+	letItDie(watch.Add("assets/template"))
+
+	dida := 0
+	t := time.NewTicker(time.Second)
+	changed := false
+	sign := make(chan int)
+	stop := make(chan int)
+	go func() {
+		for{
+			select {
+			case <-t.C:
+				if !changed{
+					continue
+				}
+				dida ++
+				if dida > 3{
+					refresh()
+					changed = false
+				}
+			case <-sign:
+				changed = true
+				dida = 0
+			case <-stop:
+				return
+			}
+		}
+	}()
+	go func() {
+		for {
+			select {
+			case <-watch.Events:
+				{
+					sign <- 1
+				}
+			case err := <-watch.Errors:
+				{
+					if err != nil{
+						logger.Danger("%s",err)
+						stop <- 1
+						return
+					}
+				}
+			}
+		}
+		watch.Close()
+	}()
+}
+func refresh() {
 	entry := template.Must(base.ParseFiles("assets/template/entry.html"))
 	entry, err = view_entry.ParseGlob("assets/template/components/*.html")
 	if err != nil{
