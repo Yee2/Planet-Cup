@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"bytes"
 )
 
 func Print() {
@@ -16,29 +15,31 @@ func Print() {
 			break
 		}
 		var level string
+		t := NewTxt(fmt.Sprintf("[%s#%s] %s#%d:",
+			level, log.Time.Format("01-02 15:04:05"),
+			filepath.Base(log.File), log.Line))
 		switch log.Level {
 		case INFO:
 			level = "info"
+			t.Color(Blue)
 		case WARNING:
 			level = "warning"
+			t.Color(YELLOW)
 		case SUCCESS:
 			level = "success"
+			t.Color(GREEN)
 		case DANGER:
 			level = "danger"
+			t.Color(RED)
 		}
-		fmt.Printf("[%s#%s] %s#%d: %s\n",
-			level, log.Time.Format("01-02 15:04:05"),
-			filepath.Base(log.File), log.Line, log.Content)
+		fmt.Printf("%s%s\n", t, log.Content)
 	}
 }
-
-const STR_BEGIN = "\033["
-const STR_END = "\033[0m"
 
 type Color int
 
 const (
-	BLACK   Color = iota
+	BLACK Color = iota
 	RED
 	GREEN
 	YELLOW
@@ -68,7 +69,7 @@ type txt struct {
 }
 
 func NewTxt(Content string) *txt {
-	return &txt{text: Content, mode: "0"}
+	return &txt{text: Content, mode: "01"}
 }
 
 func (this *txt) Color(c Color) {
@@ -79,20 +80,4 @@ func (this *txt) BackColor(c Color) {
 }
 func (this *txt) Mode(m Mode) {
 	this.mode = string(m)
-}
-func (this *txt) ToString() string {
-	buf := &bytes.Buffer{}
-	buf.WriteString(STR_BEGIN)
-	buf.WriteString(this.mode + ";")
-	if this.color != "" {
-		buf.WriteString(this.color + ";")
-	}
-	if this.backColor != "" {
-		buf.WriteString(this.backColor + ";")
-	}
-
-	buf.WriteString("m")
-	buf.WriteString(this.text)
-	buf.WriteString(STR_BEGIN)
-	return buf.String()
 }

@@ -22,6 +22,7 @@ import (
 
 var (
 	view_entry *template.Template
+	view_login *template.Template
 	views      map[string]*template.Template
 	err        error
 )
@@ -31,9 +32,8 @@ var logger = ylog.NewLogger("web-UI")
 var tables = manager.NewTable()
 var base = template.New("base").Funcs(template.FuncMap{"ByteSize": ByteSize, "Date": date})
 var BuiltIn = true
-var initial = false
 
-func viewInitial() {
+func init() {
 	logger.Info("Initialize template resources")
 	views = make(map[string]*template.Template)
 	if BuiltIn {
@@ -48,6 +48,7 @@ func viewInitial() {
 		} else {
 			panic(errors.New("unable to read the entry file"))
 		}
+
 		// 加载全部组件
 		for name := range assets {
 			if strings.HasPrefix(name, "/components/") && strings.HasSuffix(name, ".html") {
@@ -59,12 +60,20 @@ func viewInitial() {
 
 		for name := range assets {
 			if strings.HasPrefix(name, "/content/") && strings.HasSuffix(name, ".html") {
+				assets[name].Reader.Seek(0,0)
 				data, err := ioutil.ReadAll(assets[name])
 				letItDie(err)
 				views[filepath.Base(name)] = template.Must(template.Must(view_entry.Clone()).Parse(string(data)))
 			}
 		}
 
+		assets["/components/head.html"].Reader.Seek(0,0)
+		data_head, err := ioutil.ReadAll(assets["/components/head.html"])
+		letItDie(err)
+		data_login, err := ioutil.ReadAll(assets["/login.html"])
+		letItDie(err)
+		view_login = template.Must(template.Must(template.New("").Parse(string(data_login))).Parse(string(data_head)))
+		letItDie(err)
 	} else {
 		// 使用本地路径资源
 		refresh()
@@ -140,6 +149,7 @@ func refresh() {
 		}
 		views[filepath.Base(f)] = t
 	}
+	view_login = template.Must(template.ParseFiles("assets/template/components/head.html","assets/template/login.html"))
 }
 func Listen() {
 	err := tables.Load("data.json")
@@ -200,11 +210,6 @@ func letItDie(err error) {
 	}
 }
 func view(w io.Writer, name string, data interface{}) {
-
-	if initial == false {
-		initial = true
-		viewInitial()
-	}
 	if tpl, ok := views[name+".html"]; ok {
 		tpl.ExecuteTemplate(w, "entry", data)
 		return

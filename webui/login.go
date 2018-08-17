@@ -4,7 +4,6 @@ import (
 	"time"
 	"net/http"
 	"github.com/julienschmidt/httprouter"
-	"html/template"
 	"math/rand"
 	"sync"
 )
@@ -38,8 +37,7 @@ func login(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
 		http.Redirect(w,r,"/index.html",301)
 		return
 	}
-	t := template.Must(template.ParseFiles("assets/template/components/head.html","assets/template/login.html"))
-	t.ExecuteTemplate(w,"login",nil)
+	view_login.ExecuteTemplate(w,"login",nil)
 }
 
 func loginFail(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
@@ -47,8 +45,7 @@ func loginFail(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
 		http.Redirect(w,r,"/index.html",301)
 		return
 	}
-	t := template.Must(template.ParseFiles("assets/template/components/head.html","assets/template/login.html"))
-	t.ExecuteTemplate(w,"login", struct {
+	view_login.ExecuteTemplate(w,"login", struct {
 		Message string
 	}{"用户名或密码错误，请重试。"})
 }
