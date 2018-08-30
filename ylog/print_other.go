@@ -1,3 +1,5 @@
+//+build !windows
+
 package ylog
 
 import "bytes"
@@ -8,10 +10,10 @@ func (this *txt) String() string {
 	buf.WriteByte('[')
 	buf.WriteString(this.mode)
 	if this.color != "" {
-		buf.WriteString(";"+this.color)
+		buf.WriteString(";" + this.color)
 	}
 	if this.backColor != "" {
-		buf.WriteString(";"+this.backColor)
+		buf.WriteString(";" + this.backColor)
 	}
 
 	buf.WriteString(`m`)
@@ -20,4 +22,3 @@ func (this *txt) String() string {
 	buf.WriteString("[00m")
 	return buf.String()
 }
-

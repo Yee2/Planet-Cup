@@ -1,87 +1,88 @@
 package webui
 
 import (
-	"time"
-	"net/http"
 	"github.com/julienschmidt/httprouter"
 	"math/rand"
+	"net/http"
 	"sync"
+	"time"
 )
 
 var session = struct {
-	rows map[string]time.Time//表示过期时间
+	rows map[string]time.Time //表示过期时间
 	sync.Mutex
-}{make(map[string]time.Time),sync.Mutex{}}
+}{make(map[string]time.Time), sync.Mutex{}}
 var (
-	user = "admin"
+	user     = "admin"
 	password = "admin"
 )
 
-func init()  {
+func init() {
 	go func() {
 		for {
 			// 清理的过期的会话
 			time.Sleep(time.Hour)
-			for i,v := range session.rows {
-				if v.Before(time.Now()){
+			for i, v := range session.rows {
+				if v.Before(time.Now()) {
 					session.Lock()
-					delete(session.rows,i)
+					delete(session.rows, i)
 					session.Unlock()
 				}
 			}
 		}
 	}()
 }
-func login(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
-	if isLogin(w,r) {
-		http.Redirect(w,r,"/index.html",301)
+func login(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	once.Do(initialize)
+	if isLogin(w, r) {
+		http.Redirect(w, r, "/index.html", 301)
 		return
 	}
-	view_login.ExecuteTemplate(w,"login",nil)
+	view_login.ExecuteTemplate(w, "login", nil)
 }
 
-func loginFail(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
-	if isLogin(w,r) {
-		http.Redirect(w,r,"/index.html",301)
+func loginFail(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	if isLogin(w, r) {
+		http.Redirect(w, r, "/index.html", 301)
 		return
 	}
-	view_login.ExecuteTemplate(w,"login", struct {
+	view_login.ExecuteTemplate(w, "login", struct {
 		Message string
 	}{"用户名或密码错误，请重试。"})
 }
 
-func loginVerify(w http.ResponseWriter,r *http.Request, ps httprouter.Params){
-	if r.PostFormValue("user") == user && r.PostFormValue("password") == password{
+func loginVerify(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	if r.PostFormValue("user") == user && r.PostFormValue("password") == password {
 		key := RandStr(8)
 		session.Lock()
 		defer session.Unlock()
-		session.rows[key] = time.Now().Add(time.Minute * 10)//有效期十分钟
-		cookie    :=    http.Cookie{Name: "session_key",Value:key}
+		session.rows[key] = time.Now().Add(time.Minute * 10) //有效期十分钟
+		cookie := http.Cookie{Name: "session_key", Value: key}
 		http.SetCookie(w, &cookie)
-		http.Redirect(w,r,"/index.html",301)
+		http.Redirect(w, r, "/index.html", 301)
 		return
 	}
-	loginFail(w,r,ps)
+	loginFail(w, r, ps)
 }
-func logout(w http.ResponseWriter,r *http.Request, ps httprouter.Params) {
+func logout(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	cookie, err := r.Cookie("session_key")
-	if err ==nil{
-		if _,ok := session.rows[cookie.Value]; ok{
+	if err == nil {
+		if _, ok := session.rows[cookie.Value]; ok {
 			session.Lock()
-			delete(session.rows,cookie.Value)
+			delete(session.rows, cookie.Value)
 			session.Unlock()
 		}
 	}
 	cookie.Expires = time.Now()
 	http.SetCookie(w, cookie)
-	http.Redirect(w,r,"/login.html",301)
+	http.Redirect(w, r, "/login.html", 301)
 }
 func isLogin(_ http.ResponseWriter, r *http.Request) bool {
 	cookie, err := r.Cookie("session_key")
-	if err !=nil{
-		return  false
+	if err != nil {
+		return false
 	}
-	if s,ok := session.rows[cookie.Value];ok{
+	if s, ok := session.rows[cookie.Value]; ok {
 		if s.After(time.Now()) {
 			session.Lock()
 			defer session.Unlock()
@@ -94,11 +95,11 @@ func isLogin(_ http.ResponseWriter, r *http.Request) bool {
 
 func auth(h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		if isLogin(w,r) {
+		if isLogin(w, r) {
 			h(w, r, ps)
 		} else {
-			w.Header().Set("Cache-Control","no-cache")
-			http.Redirect(w,r,"/login.html",301)
+			w.Header().Set("Cache-Control", "no-cache")
+			http.Redirect(w, r, "/login.html", 301)
 		}
 	}
 }
@@ -111,7 +112,7 @@ func RandStr(strlen int) string {
 	for i := 0; i < strlen; i++ {
 		num = rand.Intn(57) + 65
 		for {
-			if num>90 && num<97 {
+			if num > 90 && num < 97 {
 				num = rand.Intn(57) + 65
 			} else {
 				break

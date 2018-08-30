@@ -37,6 +37,13 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">流量限制(为0不限制)</label>
+
+                                <div class="col-sm-10">
+                                    <input class="form-control" placeholder="" type="number" name="traffic">
+                                </div>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -57,25 +64,27 @@
         modal.find(".save-btn").on("click", function () {
             var password = modal.find('input[name="password"]').val(),
                     encryption = modal.find('select[name="encryption"]').val(),
+                    traffic = modal.find('input[name="traffic"]').val(),
                     port = modal.find('input[name="port"]').val();
-            if( !password ){
+            if (!password) {
                 alert("密码不能为空")
                 return
             }
             var data = new FormData();
-            data.append("password",password);
-            data.append("encryption",encryption);
-            fetch("/shadowsocks/" + port,{
-                method:"PUT",
-                body:data,
-                credentials:"include"
+            data.append("password", password);
+            data.append("encryption", encryption);
+            data.append("traffic", traffic);
+            fetch("/shadowsocks/" + port, {
+                method: "PUT",
+                body: data,
+                credentials: "include"
             }).then(function (resp) {
                 return resp.json();
             }).then(function (data) {
-                if(data.code === 0){
+                if (data.code === 0) {
                     alert("保存成功");
                     location.reload();
-                }else{
+                } else {
                     alert(data.error);
                 }
             }).catch(function (reason) {
@@ -84,10 +93,11 @@
 
         });
         $(".update-btn").on("click", function () {
-            var that = $(this),data = that.data.bind(that);
+            var that = $(this), data = that.data.bind(that);
             modal.find('input[name="password"]').val(data("password"));
             modal.find('select[name="encryption"]').val(data("encryption"));
             modal.find('input[name="port"]').val(data("id"));
+            modal.find('input[name="traffic"]').val(data("traffic"));
             modal.modal("show");
         });
     })();

@@ -1,10 +1,10 @@
 package manager
 
 import (
-	"testing"
 	"io/ioutil"
-	"path/filepath"
 	"net"
+	"path/filepath"
+	"testing"
 )
 
 func TestTable_Save(t *testing.T) {
@@ -34,11 +34,11 @@ func TestTable_Save(t *testing.T) {
 	table.Rows[8300].Stop()
 	table.Save(filepath.Join(dir, "tmp.json"))
 	t.Run("load", func(t *testing.T) {
-		testTable_Save(t, filepath.Join(dir, "tmp.json"))
+		testTableSave(t, filepath.Join(dir, "tmp.json"))
 	})
 }
 
-func testTable_Save(t *testing.T, file string) {
+func testTableSave(t *testing.T, file string) {
 	table := NewTable()
 	err := table.Load(file)
 	if err != nil {
@@ -46,5 +46,19 @@ func testTable_Save(t *testing.T, file string) {
 	}
 	if len(table.Rows) < 1 {
 		t.Fatalf("无法加载shadowsocks data")
+	}
+}
+
+func TestTrafficLimit(t *testing.T) {
+	ss, err := NewShadowsocks(8300, "12345678", "AES-256-GCM")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ss.SetTrafficLimit(20)
+	if ss.TrafficLimit != 21474836480 {
+		t.FailNow()
+	}
+	if ss.GetTrafficLimit() != 20 {
+		t.FailNow()
 	}
 }

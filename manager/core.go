@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/shadowsocks/go-shadowsocks2/core"
-	"github.com/Yee2/Planet-Cup/shadowsflows"
-	"net"
-	"strconv"
-	"io"
-	"os"
 	"encoding/json"
+	"github.com/Yee2/Planet-Cup/shadowsflows"
+	"github.com/shadowsocks/go-shadowsocks2/core"
+	"io"
+	"net"
+	"os"
+	"strconv"
+	"math"
 )
 
 const save_flag = "YeeShadowSocksPanel_v0.1"
@@ -21,26 +22,74 @@ type Shadowsocks struct {
 	Port     int
 	Password string
 	Cipher   string
+	key      []byte
+	tcp      io.Closer
+	udp      io.Closer
 	*shadowsflows.Flow
-	key []byte
-	tcp io.Closer
-	udp io.Closer
+	status   Status
 }
+type Status int
 
+const (
+	Active   Status = iota //运行中
+	Suspend                //超过限制被暂停
+	Shutdown               // 未运行
+	Failed                 //启动失败
+	Unknown                // 未知状态，关闭失败的时候返回
+)
+
+func (s Status)String() string {
+	switch s {
+	case Active:
+		return "运行中"
+	case Shutdown:
+		return "未运行"
+	case Unknown:
+		return "未知错误"
+	case Suspend:
+		return "超过限额"
+	case Failed:
+		return "启动失败"
+	default:
+		return fmt.Sprintf("Unknown(%02X)",s)
+	}
+}
 func NewShadowsocks(port int, password, method string) (*Shadowsocks, error) {
-	if port < 1 || port > 65535 {
+	if port < 1 || port > 0xffff {
 		return nil, errors.New("port error")
 	}
-	return &Shadowsocks{
+	ss := &Shadowsocks{
 		Port:     port,
 		Password: password,
 		Cipher:   method,
 		Flow:     shadowsflows.New(),
 		key:      make([]byte, 0, 32),
-	}, nil
+		status:   Shutdown,
+	}
+	ss.OnTrafficLimit(func() {
+		ss.tcp.Close()
+		ss.udp.Close()
+		ss.status = Suspend
+	})
+	return ss, nil
 }
-
-func (self *Shadowsocks) Start() error {
+func (self *Shadowsocks) SetTrafficLimit(i int){
+	self.Flow.SetTrafficLimit(i*int(math.Pow(2,30)))
+}
+func (self *Shadowsocks) GetTrafficLimit()(i int){
+	return self.Flow.TrafficLimit/int(math.Pow(2,30))
+}
+func (self *Shadowsocks) Status() Status {
+	return self.status
+}
+func (self *Shadowsocks) Start() (e error) {
+	defer func() {
+		if e != nil {
+			self.status = Failed
+		} else {
+			self.status = Active
+		}
+	}()
 	if self.udp != nil || self.tcp != nil {
 		return nil
 	}
@@ -62,7 +111,14 @@ func (self *Shadowsocks) Start() error {
 	return nil
 }
 
-func (self *Shadowsocks) Stop() error {
+func (self *Shadowsocks) Stop() (e error) {
+	defer func() {
+		if e != nil {
+			self.status = Unknown
+		} else {
+			self.status = Shutdown
+		}
+	}()
 	if self.tcp != nil {
 		if err := self.tcp.Close(); err != nil {
 			logger.Warning("停止TCP监听发生错误:%s，端口:%d", err, self.Port)
@@ -98,7 +154,7 @@ func (self *Table) Start(id int) error {
 	if ss, ok := self.Rows[id]; ok {
 		return ss.Start()
 	}
-	return errors.New(fmt.Sprintf("%d Not Exist!", id))
+	return fmt.Errorf("%d Not Exist!", id)
 }
 
 // 这个方法将被弃用
@@ -184,7 +240,7 @@ func (self *Table) Del(id int) error {
 	return errors.New(fmt.Sprintf("Port %d No Found!", id))
 }
 
-func (t *Table) Save(name string) (e error) {
+func (self *Table) Save(name string) (e error) {
 	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -200,51 +256,55 @@ func (t *Table) Save(name string) (e error) {
 	//	return err
 	//}
 	data := []struct {
-		Port     int
-		Password string
-		Cipher   string
-		Up       int
-		Down     int
+		Port           int
+		Password       string
+		Cipher         string
+		Up             int
+		Down           int
+		TrafficLimit int
 	}{}
-	for _, ss := range t.Rows {
+	for _, ss := range self.Rows {
 		data = append(data, struct {
-			Port     int
-			Password string
-			Cipher   string
-			Up       int
-			Down     int
-		}{ss.Port, ss.Password, ss.Cipher, ss.Flow.Up, ss.Flow.Down})
+			Port           int
+			Password       string
+			Cipher         string
+			Up             int
+			Down           int
+			TrafficLimit int
+		}{ss.Port, ss.Password, ss.Cipher, ss.Flow.Up, ss.Flow.Down, ss.TrafficLimit})
 	}
 	str, err := json.Marshal(data)
 	_, err = f.Write(str)
 	return err
 }
 
-func (t *Table) Load(file string) (error) {
+func (self *Table) Load(file string) error {
 	f, err := os.Open(file)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	data := []struct {
-		Port     int
-		Password string
-		Cipher   string
-		Up       int
-		Down     int
+		Port           int
+		Password       string
+		Cipher         string
+		Up             int
+		Down           int
+		TrafficLimit int
 	}{}
 	decoder := json.NewDecoder(f)
 	if err := decoder.Decode(&data); err != nil {
 		return err
 	}
-	for i := range data{
-		ss,err := NewShadowsocks(data[i].Port,data[i].Password,data[i].Cipher)
-		if err != nil{
-			logger.Danger("%s",err)
+	for i := range data {
+		ss, err := NewShadowsocks(data[i].Port, data[i].Password, data[i].Cipher)
+		if err != nil {
+			logger.Danger("%s", err)
 		}
 		ss.Flow.Up = data[i].Up
 		ss.Flow.Down = data[i].Down
-		t.Add(ss)
+		ss.SetTrafficLimit(data[i].TrafficLimit)
+		self.Add(ss)
 	}
 	return nil
 }

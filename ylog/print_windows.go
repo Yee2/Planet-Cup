@@ -1,7 +1,7 @@
-package ylog
+//+build windows
 
+package ylog
 
 func (this *txt) String() string {
 	return this.text
 }
-

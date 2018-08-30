@@ -1,101 +1,65 @@
 package shadowsflows
 
 import (
-	"fmt"
 	"code.cloudfoundry.org/bytefmt"
+	"fmt"
 	"net"
 	"sync"
 	"time"
 )
 
 type Flow struct {
-	Up    int
-	Down  int
-	Mu    sync.Mutex
-	speed speed
-}
-
-// 神经病一样的写法
-type speed struct {
-	tcp struct {
-		up   addup
-		down addup
-	}
-	udp struct {
-		up   addup
-		down addup
-	}
-	history struct {
-		line [600]struct {
-			up   int
-			down int
-			time time.Time
-		} //记录十分钟内的数据
-		offset int
-		sync.Mutex
-	}
-}
-
-func (self *speed) run() {
-	self.udp.up.ch = make(chan int, 100)
-	self.udp.down.ch = make(chan int, 100)
-	self.tcp.up.ch = make(chan int, 100)
-	self.tcp.down.ch = make(chan int, 100)
-	self.udp.up.run()
-	self.udp.down.run()
-	self.tcp.up.run()
-	self.tcp.down.run()
-	go func() {
-		for {
-			time.Sleep(time.Second)
-			self.history.Lock()
-			self.history.line[self.history.offset].up = self.tcp.up.bucket + self.udp.up.bucket
-			self.history.line[self.history.offset].down = self.tcp.down.bucket + self.udp.down.bucket
-			self.history.line[self.history.offset].time = time.Now()
-			self.history.offset ++
-			if self.history.offset >= len(self.history.line){
-				self.history.offset -= len(self.history.line)
-			}
-			self.history.Unlock()
-		}
-	}()
-}
-
-type addup struct {
-	current int
-	bucket  int
-	sync.Mutex
-	ch      chan int
+	Up             int
+	Down           int
+	Mu             sync.Mutex
+	speed          speed
+	BandwidthLimit int //速度限制，使用int类型，可以在32位支持2T左右最大值，64位无需担心
+	TrafficLimit   int //总流量限制
+	onTrafficLimit func()
+	interval       time.Duration
+	monitor        bool
 }
 
 func (self Flow) String() string {
 	return fmt.Sprintf("上传流量:%s,下载流量:%s\n", bytefmt.ByteSize(uint64(self.Up)), bytefmt.ByteSize(uint64(self.Down)))
 }
 
-func (self *addup) run() {
-	go func() {
-		for {
-			time.Sleep(time.Second)
-			self.Lock()
-			self.bucket = self.current
-			self.current = 0
-			self.Unlock()
-
-		}
-	}()
-	go func() {
-		for {
-			n := <-self.ch
-			self.Lock()
-			self.current += n
-			self.Unlock()
-		}
-	}()
-}
 func New() *Flow {
-	self := &Flow{}
+	self := &Flow{interval: time.Minute * 10}
 	self.speed.run()
 	return self
+}
+func (self *Flow) OnTrafficLimit(callback func()) {
+	if callback != nil {
+		self.Mu.Lock()
+		self.onTrafficLimit = callback
+		self.Mu.Unlock()
+	}
+}
+func (self *Flow) SetTrafficLimit(i int) {
+	self.Mu.Lock()
+	defer self.Mu.Unlock()
+	self.TrafficLimit = i
+	if i > 0 && self.monitor == false {
+		self.Deamon()
+	}
+}
+func (self *Flow) Deamon() {
+	go func() {
+		self.monitor = true
+		defer func() { self.monitor = false }()
+		for {
+			if self.TrafficLimit <= 0 {
+				return
+			}
+			if self.TrafficLimit <= self.Up+self.Down {
+				if self.onTrafficLimit != nil {
+					self.onTrafficLimit()
+				}
+			}
+			time.Sleep(self.interval)
+		}
+	}()
 }
 func (self *Flow) PipePacket(C net.PacketConn) net.PacketConn {
 	return &Flows_PacketConn{C, self}
@@ -104,29 +68,41 @@ func (self *Flow) Speed() (Up int, Down int) {
 	return self.speed.tcp.up.bucket + self.speed.udp.up.bucket,
 		self.speed.tcp.down.bucket + self.speed.udp.down.bucket
 }
-func (self *Flow) Speed_history(n int) ([]struct{Up int;Down int;Time int64}) {
+func (self *Flow) SpeedHistory(n int) []struct {
+	Up   int
+	Down int
+	Time int64
+} {
 	h := self.speed.history
 	t := len(h.line)
 	var i int
-	if n > t{
-		n = t// 不能超出数组
+	if n > t {
+		n = t // 不能超出数组
 	}
 	n--
-	data := make([]struct{Up int;Down int;Time int64},0,n)
+	data := make([]struct {
+		Up   int
+		Down int
+		Time int64
+	}, 0, n)
 	// 从指针开始处往前移动 n -1个
-	for n = h.offset - n; n <= h.offset; n++{
+	for n = h.offset - n; n <= h.offset; n++ {
 
 		if n < 0 {
 			i = t + n
-		}else{
+		} else {
 			i = n
 		}
 
 		item := h.line[i]
-		if item.time.Unix() < 0{
+		if item.time.Unix() < 0 {
 			continue
 		}
-		data = append(data,struct{Up int;Down int;Time int64}{item.up,item.down,item.time.Unix()})
+		data = append(data, struct {
+			Up   int
+			Down int
+			Time int64
+		}{item.up, item.down, item.time.Unix()})
 	}
 	return data
 }
@@ -134,12 +110,12 @@ func (self *Flow) Pipe(C net.Conn) net.Conn {
 	return &Flows{C, self}
 }
 
-func (self *Flow) ReplaceConn(shadow func(net.Conn) net.Conn) (func(net.Conn) net.Conn) {
+func (self *Flow) ReplaceConn(shadow func(net.Conn) net.Conn) func(net.Conn) net.Conn {
 	return func(C net.Conn) net.Conn {
 		return shadow(self.Pipe(C))
 	}
 }
-func (self *Flow) ReplacePacketConn(shadow func(net.PacketConn) net.PacketConn) (func(net.PacketConn) net.PacketConn) {
+func (self *Flow) ReplacePacketConn(shadow func(net.PacketConn) net.PacketConn) func(net.PacketConn) net.PacketConn {
 	return func(C net.PacketConn) net.PacketConn {
 		return shadow(self.PipePacket(C))
 	}
@@ -159,14 +135,4 @@ func (self *Flow) Set(Up int, Down int) {
 	self.Up += Up
 	self.Down += Down
 	self.Mu.Unlock()
-}
-
-// 通过通道，刷新网速，同时不至于卡死
-func async(speed addup, i int) {
-	go func() {
-		select {
-		case speed.ch <- i:
-		case <-time.After(time.Second):
-		}
-	}()
 }

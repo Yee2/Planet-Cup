@@ -1,23 +1,24 @@
 package webui
 
 import (
-	"net/http"
-	"html/template"
-	"path/filepath"
-	"io"
-	"errors"
-	"strconv"
 	"encoding/json"
-	"time"
-	"io/ioutil"
-	"strings"
+	"errors"
 	"fmt"
+	"html/template"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
-	"github.com/Yee2/Planet-Cup/ylog"
-	"github.com/Yee2/Planet-Cup/manager"
 	"code.cloudfoundry.org/bytefmt"
-	"github.com/julienschmidt/httprouter"
+	"github.com/Yee2/Planet-Cup/manager"
+	"github.com/Yee2/Planet-Cup/ylog"
 	"github.com/fsnotify/fsnotify"
+	"github.com/julienschmidt/httprouter"
+	"sync"
 )
 
 var (
@@ -28,12 +29,13 @@ var (
 )
 
 var mux = &http.ServeMux{}
+var once = &sync.Once{}
 var logger = ylog.NewLogger("web-UI")
 var tables = manager.NewTable()
 var base = template.New("base").Funcs(template.FuncMap{"ByteSize": ByteSize, "Date": date})
 var BuiltIn = true
 
-func init() {
+func initialize() {
 	logger.Info("Initialize template resources")
 	views = make(map[string]*template.Template)
 	if BuiltIn {
@@ -60,14 +62,14 @@ func init() {
 
 		for name := range assets {
 			if strings.HasPrefix(name, "/content/") && strings.HasSuffix(name, ".html") {
-				assets[name].Reader.Seek(0,0)
+				assets[name].Reader.Seek(0, 0)
 				data, err := ioutil.ReadAll(assets[name])
 				letItDie(err)
 				views[filepath.Base(name)] = template.Must(template.Must(view_entry.Clone()).Parse(string(data)))
 			}
 		}
 
-		assets["/components/head.html"].Reader.Seek(0,0)
+		assets["/components/head.html"].Reader.Seek(0, 0)
 		data_head, err := ioutil.ReadAll(assets["/components/head.html"])
 		letItDie(err)
 		data_login, err := ioutil.ReadAll(assets["/login.html"])
@@ -78,10 +80,9 @@ func init() {
 		// 使用本地路径资源
 		refresh()
 		daemon()
-
 	}
 }
-func daemon()  {
+func daemon() {
 	watch, err := fsnotify.NewWatcher()
 	letItDie(err)
 	letItDie(watch.Add("assets/template"))
@@ -92,14 +93,14 @@ func daemon()  {
 	sign := make(chan int)
 	stop := make(chan int)
 	go func() {
-		for{
+		for {
 			select {
 			case <-t.C:
-				if !changed{
+				if !changed {
 					continue
 				}
-				dida ++
-				if dida > 3{
+				dida++
+				if dida > 3 {
 					refresh()
 					changed = false
 				}
@@ -120,8 +121,8 @@ func daemon()  {
 				}
 			case err := <-watch.Errors:
 				{
-					if err != nil{
-						logger.Danger("%s",err)
+					if err != nil {
+						logger.Danger("%s", err)
 						stop <- 1
 						return
 					}
@@ -132,29 +133,30 @@ func daemon()  {
 	}()
 }
 func refresh() {
+	logger.Info("refresh template")
 	entry := template.Must(base.ParseFiles("assets/template/entry.html"))
-	entry, err = view_entry.ParseGlob("assets/template/components/*.html")
-	if err != nil{
-		logger.Warning("%s",err)
+	entry, err = entry.ParseGlob("assets/template/components/*.html")
+	if err != nil {
+		logger.Warning("%s", err)
 		return
 	}
 	view_entry = entry
 	files, err := filepath.Glob("assets/template/content/*.html")
 	letItDie(err)
 	for _, f := range files {
-		t,err := template.Must(view_entry.Clone()).ParseFiles(f)
-		if err != nil{
-			logger.Warning("%s",err)
+		t, err := template.Must(view_entry.Clone()).ParseFiles(f)
+		if err != nil {
+			logger.Warning("%s", err)
 			continue
 		}
 		views[filepath.Base(f)] = t
 	}
-	view_login = template.Must(template.ParseFiles("assets/template/components/head.html","assets/template/login.html"))
+	view_login = template.Must(template.ParseFiles("assets/template/components/head.html", "assets/template/login.html"))
 }
 func Listen() {
 	err := tables.Load("data.json")
-	if err != nil{
-		logger.Danger("%s",err)
+	if err != nil {
+		logger.Danger("%s", err)
 	}
 	tables.Boot()
 	router := httprouter.New()
@@ -210,6 +212,7 @@ func letItDie(err error) {
 	}
 }
 func view(w io.Writer, name string, data interface{}) {
+	once.Do(initialize)
 	if tpl, ok := views[name+".html"]; ok {
 		tpl.ExecuteTemplate(w, "entry", data)
 		return
@@ -228,7 +231,9 @@ func res_error(w http.ResponseWriter, code int, text string) {
 		Code  int    `json:"code"`
 	}{text, -1})
 }
-func res_message(w io.Writer, text string) {
+func res_message(w http.ResponseWriter, text string) {
+	w.Header().Set("Content-Type", "Content-Type: application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
 	response := json.NewEncoder(w)
 	response.Encode(struct {
 		Error string `json:"message"`
