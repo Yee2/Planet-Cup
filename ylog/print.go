@@ -1,10 +1,10 @@
 package ylog
 
 import (
+	"bytes"
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"bytes"
 )
 
 func Print() {
@@ -38,7 +38,7 @@ const STR_END = "\033[0m"
 type Color int
 
 const (
-	BLACK   Color = iota
+	BLACK Color = iota
 	RED
 	GREEN
 	YELLOW
@@ -61,9 +61,9 @@ const (
 )
 
 type txt struct {
-	text,      //文字
+	text, //文字
 	backColor, //背景色
-	mode,      //控制符
+	mode, //控制符
 	color string //文字颜色
 }
 

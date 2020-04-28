@@ -1,10 +1,10 @@
 package manager
 
 import (
-	"testing"
 	"io/ioutil"
-	"path/filepath"
 	"net"
+	"path/filepath"
+	"testing"
 )
 
 func TestTable_Save(t *testing.T) {

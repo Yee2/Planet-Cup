@@ -1,12 +1,12 @@
 package webui
 
 import (
-	_ "net/http/pprof"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 )
 
-func init()  {
+func init() {
 	go func() {
 		log.Println(http.ListenAndServe(":6060", nil))
 	}()

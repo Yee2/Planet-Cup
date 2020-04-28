@@ -6,9 +6,9 @@ import (
 
 	"sync"
 
+	"errors"
 	"github.com/shadowsocks/go-shadowsocks2/socks"
 	"io"
-	"errors"
 )
 
 type mode int
@@ -23,8 +23,8 @@ const udpBufSize = 64 * 1024
 
 type ch chan int
 
-func (self ch)Close() error {
-	if self == nil{
+func (self ch) Close() error {
+	if self == nil {
 		return nil
 	}
 	select {
@@ -33,19 +33,20 @@ func (self ch)Close() error {
 		return errors.New("关闭通道超时")
 	}
 	select {
-	case <- self:
+	case <-self:
 	case <-time.After(5 * time.Second): //超时5s
 		return errors.New("关闭通道超时")
 	}
 	close(self)
 	return nil
 }
+
 // Listen on addr for encrypted packets and basically do UDP NAT.
-func udpRemote(addr string, shadow func(net.PacketConn) net.PacketConn) (io.Closer,error) {
+func udpRemote(addr string, shadow func(net.PacketConn) net.PacketConn) (io.Closer, error) {
 	c, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		logger.Danger("UDP remote listen error: \n%v", err)
-		return nil,err
+		return nil, err
 	}
 	c = shadow(c)
 
@@ -65,7 +66,7 @@ func udpRemote(addr string, shadow func(net.PacketConn) net.PacketConn) (io.Clos
 		for {
 			n, raddr, err := c.ReadFrom(buf)
 			if err != nil {
-				if closed{
+				if closed {
 					stop <- 1
 					break
 				}
@@ -106,7 +107,7 @@ func udpRemote(addr string, shadow func(net.PacketConn) net.PacketConn) (io.Clos
 		}
 		defer c.Close()
 	}()
-	return stop,nil
+	return stop, nil
 }
 
 // Packet NAT table

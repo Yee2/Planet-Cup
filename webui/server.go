@@ -1,23 +1,23 @@
 package webui
 
 import (
-	"net/http"
-	"html/template"
-	"path/filepath"
-	"io"
-	"errors"
-	"strconv"
 	"encoding/json"
-	"time"
-	"io/ioutil"
-	"strings"
+	"errors"
 	"fmt"
+	"html/template"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
-	"github.com/Yee2/Planet-Cup/ylog"
-	"github.com/Yee2/Planet-Cup/manager"
-	"code.cloudfoundry.org/bytefmt"
-	"github.com/julienschmidt/httprouter"
+	"github.com/cloudfoundry/bytefmt"
 	"github.com/fsnotify/fsnotify"
+	"github.com/julienschmidt/httprouter"
+	"hyacinth/manager"
+	"hyacinth/ylog"
 )
 
 var (
@@ -72,7 +72,7 @@ func viewInitial() {
 
 	}
 }
-func daemon()  {
+func daemon() {
 	watch, err := fsnotify.NewWatcher()
 	letItDie(err)
 	letItDie(watch.Add("assets/template"))
@@ -83,14 +83,14 @@ func daemon()  {
 	sign := make(chan int)
 	stop := make(chan int)
 	go func() {
-		for{
+		for {
 			select {
 			case <-t.C:
-				if !changed{
+				if !changed {
 					continue
 				}
-				dida ++
-				if dida > 3{
+				dida++
+				if dida > 3 {
 					refresh()
 					changed = false
 				}
@@ -111,8 +111,8 @@ func daemon()  {
 				}
 			case err := <-watch.Errors:
 				{
-					if err != nil{
-						logger.Danger("%s",err)
+					if err != nil {
+						logger.Danger("%s", err)
 						stop <- 1
 						return
 					}
@@ -125,17 +125,17 @@ func daemon()  {
 func refresh() {
 	entry := template.Must(base.ParseFiles("assets/template/entry.html"))
 	entry, err = view_entry.ParseGlob("assets/template/components/*.html")
-	if err != nil{
-		logger.Warning("%s",err)
+	if err != nil {
+		logger.Warning("%s", err)
 		return
 	}
 	view_entry = entry
 	files, err := filepath.Glob("assets/template/content/*.html")
 	letItDie(err)
 	for _, f := range files {
-		t,err := template.Must(view_entry.Clone()).ParseFiles(f)
-		if err != nil{
-			logger.Warning("%s",err)
+		t, err := template.Must(view_entry.Clone()).ParseFiles(f)
+		if err != nil {
+			logger.Warning("%s", err)
 			continue
 		}
 		views[filepath.Base(f)] = t
@@ -143,8 +143,8 @@ func refresh() {
 }
 func Listen() {
 	err := tables.Load("data.json")
-	if err != nil{
-		logger.Danger("%s",err)
+	if err != nil {
+		logger.Danger("%s", err)
 	}
 	tables.Boot()
 	router := httprouter.New()

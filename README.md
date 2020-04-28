@@ -4,7 +4,7 @@
 
 ## 安装
 
-[下载合适的版本运行](https://github.com/Yee2/Planet-Cup/tree/web-UI/releases)
+[下载合适的版本运行](https://hyacinth/tree/web-UI/releases)
 
 
 # 如何访问

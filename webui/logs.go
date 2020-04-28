@@ -1,48 +1,48 @@
 package webui
 
 import (
-	"net/http"
 	"github.com/julienschmidt/httprouter"
-	"github.com/Yee2/Planet-Cup/ylog"
+	"hyacinth/ylog"
+	"net/http"
 	"sort"
 )
 
-func logs(w http.ResponseWriter,r *http.Request, _ httprouter.Params){
+func logs(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	pool := ylog.GetAll()
-	Logs := make(log_list,0)
-	for name := range pool{
-		for _,log := range pool[name].All(){
-			Logs = append(Logs,struct{
+	Logs := make(logList, 0)
+	for name := range pool {
+		for _, log := range pool[name].All() {
+			Logs = append(Logs, struct {
 				Content string
-				Date int64
-				Level string
-				File string
-				Class string
-				Line int
-			}{log.Content,log.Time.Unix(),log.Level.String(),log.File,name,log.Line})
+				Date    int64
+				Level   string
+				File    string
+				Class   string
+				Line    int
+			}{log.Content, log.Time.Unix(), log.Level.String(), log.File, name, log.Line})
 		}
 	}
 	sort.Sort(Logs)
-	view(w,"logger", struct {
+	view(w, "logger", struct {
 		Logs interface{}
 	}{Logs})
 }
 
-type log_list []struct{
+type logList []struct {
 	Content string
-	Date int64
-	Level string
-	File string
-	Class string
-	Line int
+	Date    int64
+	Level   string
+	File    string
+	Class   string
+	Line    int
 }
 
-func (self log_list)Len()int  {
-	return len(self)
+func (list logList) Len() int {
+	return len(list)
 }
-func (self log_list)Less(i , j int)bool  {
-	return self[i].Date < self[j].Date
+func (list logList) Less(i, j int) bool {
+	return list[i].Date < list[j].Date
 }
-func (self log_list)Swap(i , j int) {
-	self[i],self[j] = self[j],self[i]
+func (list logList) Swap(i, j int) {
+	list[i], list[j] = list[j], list[i]
 }

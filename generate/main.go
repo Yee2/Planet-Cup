@@ -1,14 +1,14 @@
 package main
 
 import (
-	"os"
 	"archive/tar"
-	"path/filepath"
-	"io/ioutil"
-	"fmt"
-	"strings"
-	"io"
 	"bufio"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 type Resources struct {
@@ -21,11 +21,11 @@ func (r *Resources) Write(p []byte) (n int, err error) {
 	defer w.Flush()
 	for i := range p {
 		_, err = w.WriteString(fmt.Sprintf("0x%02x,", p[i]))
-		n ++
+		n++
 		if err != nil {
 			break
 		} else {
-			r.i ++
+			r.i++
 			if r.i%20 == 0 {
 				w.WriteString("\n")
 			}
@@ -51,7 +51,7 @@ func main() {
 	f1()
 	f2()
 }
-func f1()  {
+func f1() {
 	tarfs, err := R("webui/AssetsData.go", "AssetsData")
 	if err != nil {
 		fmt.Println(err)
@@ -68,7 +68,7 @@ func f1()  {
 		fmt.Println("操作完成!")
 	}
 }
-func f2()  {
+func f2() {
 	tarfs, err := R("webui/TemplateAssets.go", "TemplateAssets")
 	if err != nil {
 		fmt.Println(err)
@@ -96,7 +96,7 @@ func file2tar(w *tar.Writer, basedir, name string) (e error) {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("压缩%s",name)
+	fmt.Printf("压缩%s", name)
 	for _, file := range files {
 		if file.IsDir() {
 			fmt.Println()
@@ -126,6 +126,6 @@ func letItDie(err error) {
 	}
 }
 
-func Windows2Linux(s string)(string){
-	return strings.Replace(s,"\\","/",-1)
+func Windows2Linux(s string) string {
+	return strings.Replace(s, "\\", "/", -1)
 }

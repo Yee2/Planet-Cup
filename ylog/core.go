@@ -4,19 +4,19 @@
 package ylog
 
 import (
-	"time"
-	"runtime"
-	"fmt"
 	"errors"
+	"fmt"
+	"runtime"
 	"sync"
+	"time"
 )
 
 type Log struct {
-	Time time.Time
-	File string
-	Line int
+	Time    time.Time
+	File    string
+	Line    int
 	Content string
-	Level Level
+	Level   Level
 }
 
 type Level int
@@ -35,8 +35,9 @@ func (self Level) String() string {
 		return "notice"
 	}
 }
+
 const (
-	_ Level  = iota
+	_ Level = iota
 	SUCCESS
 	INFO
 	WARNING
@@ -44,81 +45,88 @@ const (
 )
 
 var (
-	logs = struct{
+	logs = struct {
 		pool map[string]*Logger
 		sync.Mutex
-	}{make(map[string]*Logger),sync.Mutex{}}
+	}{make(map[string]*Logger), sync.Mutex{}}
 )
+
 func GetAll() map[string]*Logger {
 	return logs.pool
 }
 
 type Logger struct {
-	key string
+	key    string
 	offset int
-	list [1024]*Log
+	list   [1024]*Log
 	sync.Mutex
 }
 
-func NewLogger(name string) *Logger{
-	if name == ""{
+func NewLogger(name string) *Logger {
+	if name == "" {
 		panic(errors.New("name is empty"))
 	}
-	if _,ok := logs.pool[name]; ok{
+	if _, ok := logs.pool[name]; ok {
 		panic(errors.New("this name already exists"))
 	}
-	logger := &Logger{key:name,offset:0,list:[1024]*Log{}}
+	logger := &Logger{key: name, offset: 0, list: [1024]*Log{}}
 	logs.Lock()
 	defer logs.Unlock()
 	logs.pool[name] = logger
 	return logger
 }
-func (self *Logger)next(){
-	self.offset ++
-	if self.offset >= 1024{
-		self.offset -= 1024
+func (logger *Logger) next() {
+	logger.offset++
+	if logger.offset >= 1024 {
+		logger.offset = 0
 	}
 }
-func (self *Logger)All()[]*Log{
-	r := make([]*Log,0,1024)
-	for i := 1023; i >= 0 ;i --{
-		key := i + self.offset
-		if key >= 1024{
+func (logger *Logger) All() []*Log {
+	r := make([]*Log, 0, 1024)
+	for i := 1023; i >= 0; i-- {
+		key := i + logger.offset
+		if key >= 1024 {
 			key -= 1024
 		}
-		if self.list[key] == nil{
+		if logger.list[key] == nil {
 			break
 		}
-		r = append(r,self.list[key])
+		r = append(r, logger.list[key])
 	}
-	return  r
+	return r
 }
 
-func (self *Logger)insert(level Level,Content string, agrs []interface{})  {
+func (logger *Logger) insert(level Level, Content string, args []interface{}) {
 	_, file, line, _ := runtime.Caller(2)
-	Content = fmt.Sprintf(Content, agrs ...)
+	Content = fmt.Sprintf(Content, args...)
 	log := &Log{
-		Time:time.Now(),
-		File:file,
-		Line:line,
-		Content:Content,
-		Level:level,
+		Time:    time.Now(),
+		File:    file,
+		Line:    line,
+		Content: Content,
+		Level:   level,
 	}
-	self.Lock()
-	defer self.Unlock()
-	self.list[self.offset] = log
-	go broadcast(log)//广播最新日志
-	self.next()
+	logger.Lock()
+	defer logger.Unlock()
+	logger.list[logger.offset] = log
+	//广播最新日志
+	for _, v := range receivers.list {
+		select {
+		case v.ch <- log:
+		default:
+		}
+	}
+	logger.next()
 }
-func (self *Logger)Info(Content string, agrs ... interface{})  {
-	self.insert(INFO,Content,agrs)
+func (logger *Logger) Info(Content string, args ...interface{}) {
+	logger.insert(INFO, Content, args)
 }
-func (self *Logger)Success(Content string, agrs ... interface{})  {
-	self.insert(SUCCESS,Content,agrs)
+func (logger *Logger) Success(Content string, args ...interface{}) {
+	logger.insert(SUCCESS, Content, args)
 }
-func (self *Logger)Warning(Content string, agrs ... interface{})  {
-	self.insert(WARNING,Content,agrs)
+func (logger *Logger) Warning(Content string, args ...interface{}) {
+	logger.insert(WARNING, Content, args)
 }
-func (self *Logger)Danger(Content string, agrs ... interface{})  {
-	self.insert(DANGER,Content,agrs)
+func (logger *Logger) Danger(Content string, args ...interface{}) {
+	logger.insert(DANGER, Content, args)
 }

@@ -1,29 +1,29 @@
 package rpc
 
 import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"github.com/shadowsocks/go-shadowsocks2/socks"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
-	"runtime"
-	"fmt"
-	"path/filepath"
-	"flag"
-	"io/ioutil"
-	"encoding/json"
-	"github.com/shadowsocks/go-shadowsocks2/socks"
 )
 
 var config = struct {
 	Verbose    bool
 	UDPTimeout time.Duration
-}{true,5*time.Minute}
+}{true, 5 * time.Minute}
 
 func logf(f string, v ...interface{}) {
 	_, file, line, ok := runtime.Caller(1)
 	if ok {
-		f = fmt.Sprintf("%s:%d: %s",filepath.Base(file),line,f)
+		f = fmt.Sprintf("%s:%d: %s", filepath.Base(file), line, f)
 	}
 	if config.Verbose {
 		log.Printf(f, v...)
@@ -34,40 +34,40 @@ func main() {
 
 	var (
 		configFile string
-		out string
+		out        string
 	)
-	flag.StringVar(&configFile,"c","config.json","Set the config file")
-	flag.StringVar(&out,"o","","out file")
+	flag.StringVar(&configFile, "c", "config.json", "Set the config file")
+	flag.StringVar(&out, "o", "", "out file")
 	flag.Parse()
 
-	f,err := os.Open(configFile)
+	f, err := os.Open(configFile)
 
-	if err != nil{
-		log.Fatalf("Failed to read configuration file:%s",configFile)
+	if err != nil {
+		log.Fatalf("Failed to read configuration file:%s", configFile)
 	}
 	defer f.Close()
 
-	if out != ""{
-		f_out,err := os.OpenFile(out,os.O_WRONLY | os.O_CREATE,0755)
-		if err != nil{
-			log.Fatalf("Failed to open file:%s",out)
+	if out != "" {
+		f_out, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE, 0755)
+		if err != nil {
+			log.Fatalf("Failed to open file:%s", out)
 		}
 		defer f_out.Close()
 		log.SetOutput(f_out)
 	}
-	str,err := ioutil.ReadAll(f)
+	str, err := ioutil.ReadAll(f)
 
-	if err != nil{
+	if err != nil {
 		log.Fatalln(err)
 	}
 	configuration := struct {
-		Verbose bool `json:"verbose"`
-		Server string `json:"server"`
-		Key string `json:"key"`
-		Duration int64 `json:"duration"`
-		UDP bool `json:"UDPEnabled"`
+		Verbose  bool   `json:"verbose"`
+		Server   string `json:"server"`
+		Key      string `json:"key"`
+		Duration int64  `json:"duration"`
+		UDP      bool   `json:"UDPEnabled"`
 	}{}
-	err = json.Unmarshal(str,&configuration)
+	err = json.Unmarshal(str, &configuration)
 
 	if err != nil {
 		log.Fatalln(err)
@@ -75,7 +75,7 @@ func main() {
 
 	config.Verbose = configuration.Verbose
 	socks.UDPEnabled = configuration.UDP
-	if configuration.Server == ""{
+	if configuration.Server == "" {
 		log.Fatalln("Server address can not be empty")
 	}
 
@@ -84,12 +84,11 @@ func main() {
 		Duration = time.Second * time.Duration(configuration.Duration)
 	}
 
-	c,err := NewClient(configuration.Server ,configuration.Key )
-	if err!=nil{
+	c, err := NewClient(configuration.Server, configuration.Key)
+	if err != nil {
 		log.Fatalln(err)
 	}
 	go c.Run()
-
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

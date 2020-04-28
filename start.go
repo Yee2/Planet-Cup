@@ -2,19 +2,19 @@ package main
 
 //go:generate  go run generate/main.go
 
-
 import (
-	"github.com/Yee2/Planet-Cup/webui"
-	"github.com/Yee2/Planet-Cup/ylog"
+	"hyacinth/webui"
+	"hyacinth/ylog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 )
-func main()  {
 
-	for i := range os.Args{
-		if os.Args[i] == "--dev"{
+func main() {
+
+	for i := range os.Args {
+		if os.Args[i] == "--dev" {
 			webui.BuiltIn = false
 			break
 		}

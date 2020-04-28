@@ -2,7 +2,7 @@ package shadowsflows
 
 import (
 	"fmt"
-	"code.cloudfoundry.org/bytefmt"
+	"github.com/cloudfoundry/bytefmt"
 	"net"
 	"sync"
 	"time"
@@ -52,8 +52,8 @@ func (self *speed) run() {
 			self.history.line[self.history.offset].up = self.tcp.up.bucket + self.udp.up.bucket
 			self.history.line[self.history.offset].down = self.tcp.down.bucket + self.udp.down.bucket
 			self.history.line[self.history.offset].time = time.Now()
-			self.history.offset ++
-			if self.history.offset >= len(self.history.line){
+			self.history.offset++
+			if self.history.offset >= len(self.history.line) {
 				self.history.offset -= len(self.history.line)
 			}
 			self.history.Unlock()
@@ -65,7 +65,7 @@ type addup struct {
 	current int
 	bucket  int
 	sync.Mutex
-	ch      chan int
+	ch chan int
 }
 
 func (self Flow) String() string {
@@ -104,29 +104,41 @@ func (self *Flow) Speed() (Up int, Down int) {
 	return self.speed.tcp.up.bucket + self.speed.udp.up.bucket,
 		self.speed.tcp.down.bucket + self.speed.udp.down.bucket
 }
-func (self *Flow) Speed_history(n int) ([]struct{Up int;Down int;Time int64}) {
+func (self *Flow) Speed_history(n int) []struct {
+	Up   int
+	Down int
+	Time int64
+} {
 	h := self.speed.history
 	t := len(h.line)
 	var i int
-	if n > t{
-		n = t// 不能超出数组
+	if n > t {
+		n = t // 不能超出数组
 	}
 	n--
-	data := make([]struct{Up int;Down int;Time int64},0,n)
+	data := make([]struct {
+		Up   int
+		Down int
+		Time int64
+	}, 0, n)
 	// 从指针开始处往前移动 n -1个
-	for n = h.offset - n; n <= h.offset; n++{
+	for n = h.offset - n; n <= h.offset; n++ {
 
 		if n < 0 {
 			i = t + n
-		}else{
+		} else {
 			i = n
 		}
 
 		item := h.line[i]
-		if item.time.Unix() < 0{
+		if item.time.Unix() < 0 {
 			continue
 		}
-		data = append(data,struct{Up int;Down int;Time int64}{item.up,item.down,item.time.Unix()})
+		data = append(data, struct {
+			Up   int
+			Down int
+			Time int64
+		}{item.up, item.down, item.time.Unix()})
 	}
 	return data
 }
@@ -134,12 +146,12 @@ func (self *Flow) Pipe(C net.Conn) net.Conn {
 	return &Flows{C, self}
 }
 
-func (self *Flow) ReplaceConn(shadow func(net.Conn) net.Conn) (func(net.Conn) net.Conn) {
+func (self *Flow) ReplaceConn(shadow func(net.Conn) net.Conn) func(net.Conn) net.Conn {
 	return func(C net.Conn) net.Conn {
 		return shadow(self.Pipe(C))
 	}
 }
-func (self *Flow) ReplacePacketConn(shadow func(net.PacketConn) net.PacketConn) (func(net.PacketConn) net.PacketConn) {
+func (self *Flow) ReplacePacketConn(shadow func(net.PacketConn) net.PacketConn) func(net.PacketConn) net.PacketConn {
 	return func(C net.PacketConn) net.PacketConn {
 		return shadow(self.PipePacket(C))
 	}
