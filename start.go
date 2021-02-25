@@ -1,7 +1,5 @@
 package main
 
-//go:generate  go run generate/main.go
-
 import (
 	"hyacinth/webui"
 	"hyacinth/ylog"

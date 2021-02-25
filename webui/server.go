@@ -1,12 +1,14 @@
 package webui
 
 import (
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
+	"io/fs"
+	"mime"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -26,6 +28,12 @@ var (
 	err        error
 )
 
+//go:embed assets/public
+var assets embed.FS
+
+//go:embed assets/template
+var templates embed.FS
+
 var mux = &http.ServeMux{}
 var logger = ylog.NewLogger("web-UI")
 var tables = manager.NewTable()
@@ -39,29 +47,32 @@ func viewInitial() {
 	if BuiltIn {
 		logger.Info("Use built-in template resources")
 		// 使用内置的资源
-		assets, err := NewAssets(TemplateAssets[:])
+		data, err := templates.ReadFile("assets/template/entry.html")
 		letItDie(err)
-		if resource, ok := assets["/entry.html"]; ok {
-			data, err := ioutil.ReadAll(resource)
-			letItDie(err)
-			view_entry = template.Must(base.Parse(string(data)))
-		} else {
-			panic(errors.New("unable to read the entry file"))
-		}
-		// 加载全部组件
-		for name := range assets {
-			if strings.HasPrefix(name, "/components/") && strings.HasSuffix(name, ".html") {
-				data, err := ioutil.ReadAll(assets[name])
-				letItDie(err)
-				view_entry = template.Must(base.Parse(string(data)))
+		view_entry = template.Must(base.Parse(string(data)))
+		components, err := templates.ReadDir("assets/template/components")
+		letItDie(err)
+		for _, c := range components {
+			if c.IsDir() {
+				continue
 			}
+			if !strings.HasSuffix(c.Name(), ".html") {
+				continue
+			}
+			view_entry = template.Must(view_entry.ParseFS(
+				templates, filepath.ToSlash(filepath.Join("assets/template/components", c.Name()))))
 		}
 
-		for name := range assets {
-			if strings.HasPrefix(name, "/content/") && strings.HasSuffix(name, ".html") {
-				data, err := ioutil.ReadAll(assets[name])
+		files, err := templates.ReadDir("assets/template/content")
+		letItDie(err)
+		for _, item := range files {
+			if item.IsDir() {
+				continue
+			}
+			if strings.HasSuffix(item.Name(), ".html") {
+				data, err := templates.ReadFile(filepath.ToSlash(filepath.Join("assets/template/content", item.Name())))
 				letItDie(err)
-				views[filepath.Base(name)] = template.Must(template.Must(view_entry.Clone()).Parse(string(data)))
+				views[item.Name()] = template.Must(template.Must(view_entry.Clone()).Parse(string(data)))
 			}
 		}
 
@@ -154,15 +165,29 @@ func Listen() {
 	router.POST("/login.html", loginVerify)
 
 	if BuiltIn {
-		FileHandle, err := NewAssets(AssetsData[:])
-		if err != nil {
-			panic(err)
-		}
 		logger.Info("Use file built-in resources")
-		router.ServeFiles("/public/*filepath", FileHandle)
+		public, err := fs.Sub(assets, "assets")
+		letItDie(err)
+		router.HandlerFunc("GET", "/public/*filepath", func(writer http.ResponseWriter, request *http.Request) {
+			f, err := public.Open(strings.TrimPrefix(request.URL.Path, "/"))
+			if errors.Is(err, fs.ErrNotExist) {
+				writer.WriteHeader(404)
+				return
+			} else if errors.Is(err, fs.ErrPermission) {
+				writer.WriteHeader(403)
+				return
+			} else if err != nil {
+				writer.WriteHeader(500)
+				return
+			}
+			defer f.Close()
+			writer.Header().Set("content-type", mime.TypeByExtension(filepath.Ext(request.URL.Path)))
+			io.Copy(writer, f)
+
+		})
 	} else {
 		logger.Info("Use external static resources")
-		router.ServeFiles("/public/*filepath", http.Dir("assets/public"))
+		router.ServeFiles("/public/*filepath", http.Dir("webui/assets/public"))
 	}
 
 	// 登录后可看部分

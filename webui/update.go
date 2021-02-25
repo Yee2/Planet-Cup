@@ -26,15 +26,15 @@ func update(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	}
 
 	encryption := strings.ToUpper(r.PostFormValue("encryption"))
-	encryption_check := false
+	encryptionCheck := false
 	for _, m := range shadowsocks_methods {
 		if m == encryption {
-			encryption_check = true
+			encryptionCheck = true
 			break
 		}
 	}
 
-	if !encryption_check {
+	if !encryptionCheck {
 		res_error(w, http.StatusBadRequest, "错误请求!")
 		return
 	}
@@ -64,12 +64,11 @@ func update(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 	}()
 
-	http.Error(w, http.StatusText(201), 201)
-	resp := json.NewEncoder(w)
-	resp.Encode(struct {
+	data, _ := json.Marshal(struct {
 		Port     int    `json:"port"`
 		Password string `json:"password"`
 		Method   string `json:"method"`
 	}{ss.Port, ss.Password, ss.Cipher})
+	w.Write(data)
 
 }

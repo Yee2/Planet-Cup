@@ -38,8 +38,13 @@ func login(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		http.Redirect(w, r, "/index.html", 301)
 		return
 	}
-	t := template.Must(template.ParseFiles("assets/template/components/head.html", "assets/template/login.html"))
-	t.ExecuteTemplate(w, "login", nil)
+	if BuiltIn {
+		t := template.Must(template.ParseFS(templates, "assets/template/components/head.html", "assets/template/login.html"))
+		t.ExecuteTemplate(w, "login", nil)
+	} else {
+		t := template.Must(template.ParseFiles("assets/template/components/head.html", "assets/template/login.html"))
+		t.ExecuteTemplate(w, "login", nil)
+	}
 }
 
 func loginFail(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -47,10 +52,17 @@ func loginFail(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		http.Redirect(w, r, "/index.html", 301)
 		return
 	}
-	t := template.Must(template.ParseFiles("assets/template/components/head.html", "assets/template/login.html"))
-	t.ExecuteTemplate(w, "login", struct {
-		Message string
-	}{"用户名或密码错误，请重试。"})
+	if BuiltIn {
+		t := template.Must(template.ParseFS(templates, "assets/template/components/head.html", "assets/template/login.html"))
+		t.ExecuteTemplate(w, "login", struct {
+			Message string
+		}{"用户名或密码错误，请重试。"})
+	} else {
+		t := template.Must(template.ParseFiles("assets/template/components/head.html", "assets/template/login.html"))
+		t.ExecuteTemplate(w, "login", struct {
+			Message string
+		}{"用户名或密码错误，请重试。"})
+	}
 }
 
 func loginVerify(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
